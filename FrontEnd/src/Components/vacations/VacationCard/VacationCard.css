@@ -1,0 +1,129 @@
+.vacation-card {
+  background: var(--jelly-color);
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  overflow: hidden;
+  box-shadow:
+    20px 20px 60px var(--shadow-dark),
+    -20px -20px 60px var(--shadow-light),
+    inset 0 0 0 transparent,
+    inset 0 0 0 transparent;
+  display: flex;
+  flex-direction: column;
+  direction: ltr;
+  text-align: left;
+  max-width: 340px;
+  margin-inline: auto;
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  animation: vacation-card-enter 0.35s ease-out forwards;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+  height: 100%;
+}
+
+.vacation-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.vacation-card__image-wrapper {
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+}
+
+.vacation-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vacation-card__content {
+  padding: 0.8rem 0.9rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.vacation-card__footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  padding-top: 1rem;
+}
+
+.vacation-card__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+  pointer-events: none;
+
+}
+
+.vacation-card__description {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.vacation-card__dates {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: auto;
+}
+
+.vacation-card__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.9rem;
+  margin-top: 0.4rem;
+  z-index: 1;
+  margin-bottom: 0.5rem;
+  margin: 0
+}
+
+.vacation-card__price {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.vacation-card__followers {
+  color: #4b5563;
+}
+
+.vacation-card__actions {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.vacation-card__action {
+  flex: 1;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+@keyframes vacation-card-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 600px) {
+  .vacation-card {
+    max-width: 100%;
+  }
+}

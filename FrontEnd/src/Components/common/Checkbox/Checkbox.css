@@ -1,0 +1,17 @@
+.checkbox-field {
+  margin-bottom: 0.75rem;
+}
+
+.checkbox-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.checkbox-field__input {
+  width: 16px;
+  height: 16px;
+}

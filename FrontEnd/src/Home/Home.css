@@ -1,0 +1,291 @@
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+/* Top menu */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header__left {
+  transform: translateX(-7%);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #7b879b;
+  text-shadow:
+    -1px -1px 2px rgba(255, 255, 255, 0.9),
+    2px 2px 4px rgba(163, 177, 198, 0.75);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.app-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+}
+
+/* Menu links without underline even on hover */
+.app-header__nav a,
+.app-header__nav a:visited,
+.app-header__nav a:hover {
+  color: #0f172a;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.app-header__user {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+/* Single link */
+.app-header__link {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.9rem;
+
+}
+
+.app-header__link:hover {
+  text-decoration: underline;
+}
+
+/* Admin tabs — glass bubble */
+.nav-segmented {
+  position: absolute;
+  transform: translateX(-138%);
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 999px;
+  background: #DFE4F4;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 12px 45px rgba(-22, 23, 42, 0.10);
+  backdrop-filter: blur(20px);
+  direction: ltr;
+}
+
+
+/* Tab item */
+.nav-segmented__item {
+  position: relative;
+  z-index: 1;
+  padding: 0.55rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(226, 232, 240, 0.9);
+  text-decoration: none;
+  text-align: center;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  outline: none;
+  transition:
+    color 0.25s ease,
+    font-weight 0.25s ease,
+    transform 0.15s ease;
+}
+
+.nav-segmented__item:hover {
+  color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.nav-segmented__item:focus-visible {
+  outline: none;
+}
+
+/* Indicator bubble */
+.nav-segmented__indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.97);
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.35),
+    0 0 0 1px rgba(148, 163, 184, 0.22);
+  pointer-events: none;
+  width: var(--indicator-width, 80px);
+  transform: translateX(var(--indicator-x, 0px));
+  transition:
+    transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
+    width 0.28s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.18s ease-out;
+}
+
+/* Active tab */
+.nav-segmented[data-active="vacations"] .nav-segmented__item:nth-of-type(1),
+.nav-segmented[data-active="add"] .nav-segmented__item:nth-of-type(2),
+.nav-segmented[data-active="reports"] .nav-segmented__item:nth-of-type(3) {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+
+/* Planes + cloud under the plane */
+.home-plane {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  opacity: 0.95;
+  left: -5%;
+  top: 120%;
+  animation: plane-left-home 12s ease-in-out infinite;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%,
+      rgba(255, 255, 255, 0.95),
+      rgba(253, 243, 227, 0.25));
+  box-shadow:
+    10px 10px 26px rgba(163, 177, 198, 0.9),
+    -8px -8px 20px rgba(255, 255, 255, 0.9);
+}
+
+/* The plane icon */
+.home-plane__icon {
+  font-size: 2.6rem;
+  color: var(--plane-cream);
+  text-shadow:
+    0 6px 14px rgba(163, 177, 198, 0.85),
+    -1px -1px 2px rgba(255, 255, 255, 0.95);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+/* Cloud under the plane */
+.home-plane__cloud {
+  position: absolute;
+  top: 72%;
+  left: 50%;
+  width: 58px;
+  height: 24px;
+  background: linear-gradient(to bottom, #ffffff, #f6eee0);
+  border-radius: 999px;
+  box-shadow:
+    0 6px 12px rgba(163, 177, 198, 0.55),
+    -2px -2px 4px rgba(255, 255, 255, 0.95);
+  transform: translateX(-50%);
+  animation: cloud-drift 9s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  animation-delay: 2s;
+  will-change: transform;
+}
+
+/* Small puffs for the cloud */
+.home-plane__cloud::before,
+.home-plane__cloud::after {
+  content: "";
+  position: absolute;
+  background: inherit;
+  border-radius: inherit;
+}
+
+.home-plane__cloud::before {
+  width: 28px;
+  height: 20px;
+  top: -10px;
+  left: 6px;
+}
+
+.home-plane__cloud::after {
+  width: 22px;
+  height: 16px;
+  top: -8px;
+  right: 4px;
+}
+
+.home-plane--right .home-plane__icon {
+  transform: scaleX(-1);
+}
+
+/* Plane animation */
+@keyframes plane-left-home {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+
+  25% {
+    transform: translate3d(10px, -16px, 0) rotate(-4deg);
+  }
+
+  50% {
+    transform: translate3d(2px, -28px, 0) rotate(2deg);
+  }
+
+  75% {
+    transform: translate3d(-6px, -14px, 0) rotate(-2deg);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+}
+
+
+/* Cloud moves down and expands slightly */
+@keyframes cloud-drift {
+  0% {
+    transform: translate(-50%, 0) scale(0.94);
+  }
+
+  35% {
+    transform: translate(-64%, 7px) scale(1.08);
+  }
+
+  70% {
+    transform: translate(-46%, 12px) scale(1.02);
+  }
+
+  100% {
+    transform: translate(-50%, 0) scale(0.94);
+  }
+}
+
+@media (max-width: 600px) {
+  .home-plane {
+    width: 58px;
+    height: 58px;
+  }
+
+  .home-plane__icon {
+    font-size: 2.2rem;
+  }
+
+  .home-plane__cloud {
+    width: 44px;
+    height: 16px;
+  }
+
+  .home-plane--left {
+    left: 3%;
+    top: 110%;
+    animation: plane-left-float 7s ease-in-out infinite;
+  }
+}

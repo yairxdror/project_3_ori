@@ -1,0 +1,49 @@
+.vacations-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(277px, 320px));
+  gap: 3rem;
+  justify-content: center;
+}
+
+.vacations-list__loading,
+.vacations-list__error,
+.vacations-list__empty {
+  background-color: #ffffff;
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
+  font-size: 0.95rem;
+}
+
+/* Staggered entry animation for cards in the list */
+.vacations-list .vacation-card:nth-child(1) {
+  animation-delay: 0.02s;
+}
+
+.vacations-list .vacation-card:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.vacations-list .vacation-card:nth-child(3) {
+  animation-delay: 0.10s;
+}
+
+.vacations-list .vacation-card:nth-child(4) {
+  animation-delay: 0.14s;
+}
+
+.vacations-list .vacation-card:nth-child(5) {
+  animation-delay: 0.18s;
+}
+
+.vacations-list .vacation-card:nth-child(6) {
+  animation-delay: 0.22s;
+}
+
+@media (max-width: 600px) {
+  .vacations-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    justify-content: stretch;
+  }
+}

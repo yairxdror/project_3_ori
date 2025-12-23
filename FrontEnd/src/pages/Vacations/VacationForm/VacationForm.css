@@ -1,0 +1,230 @@
+.vacation-form-page {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.vacation-form-page h1 {
+  margin-bottom: 2rem;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.vacation-form {
+  background-color: transparent;
+  padding: 1.3rem 1.5rem;
+  border-radius: 0.9rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.vacation-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+}
+
+.vacation-form__field label {
+  font-size: 0.9rem;
+  font-weight: bold;
+  z-index: 1;
+}
+
+.vacation-form__field input[type="text"],
+.vacation-form__field input[type="date"],
+.vacation-form__field input[type="number"],
+.vacation-form__field textarea {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+background: #dfe4f4;
+}
+
+.vacation-form__field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.vacation-form__image-preview img {
+  max-width: 200px;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.vacation-form__error {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  display: inline-block;
+  color: #b91c1c;
+  background-color: #fee2e2;
+  font-size: 0.9rem;
+}
+
+/* Action buttons area at the bottom of the form */
+
+.vacation-form__actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.vacation-form_button,
+.vacation-form__submit,
+.vacation-form__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.vacation-form_button,
+.vacation-form__submit,
+.vacation-form__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.vacation-form_button--primary,
+.vacation-form__submit {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+
+}
+
+.vacation-form_button--primary,
+.vacation-form__submit {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+
+}
+
+.vacation-form_button--primary:hover:not(:disabled),
+.vacation-form__submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.45);
+}
+
+.vacation-form_button--secondary,
+.vacation-form__cancel {
+  background: linear-gradient(135deg, #778099, #66748a);
+  box-shadow: 0 4px 10px rgba(122, 137, 168, 0.35);
+}
+
+/* Secondary variant — "Cancel" */
+
+.vacation-form_button--secondary,
+.vacation-form__cancel {
+  background: linear-gradient(135deg, #778099, #66748a);
+  box-shadow: 0 4px 10px rgba(122, 137, 168, 0.35);
+}
+
+.vacation-form_button--secondary:hover:not(:disabled),
+.vacation-form__cancel:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6e768e, #5b687c);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(122, 137, 168, 0.45);
+}
+
+/* Disabled state */
+.vacation-form_button:disabled,
+.vacation-form__submit:disabled,
+.vacation-form__cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* Accessibility focus */
+.vacation-form_button:focus-visible,
+.vacation-form__submit:focus-visible,
+.vacation-form__cancel:focus-visible {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 2px;
+}
+
+.vacation-form__field--file {
+  align-items: flex-start;
+}
+
+.vacation-form__file-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Disabled state while saving */
+.vacation-form__file-wrapper--disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.vacation-form__file-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.vacation-form__file-button {
+  background: linear-gradient(135deg, #3661d7, #5090f7);
+}
+
+.vacation-form__file-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #324fae, #3c74ec);
+}
+
+.vacation-form__file-name {
+  font-size: 0.80rem;
+  color: #6b7280;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 21px;
+  margin-top: 2px;
+}
+
+.vacation-form-page,
+.vacation-form,
+.vacation-form__field label,
+.vacation-form__field input[type="text"],
+.vacation-form__field input[type="date"],
+.vacation-form__field input[type="number"],
+.vacation-form__field textarea,
+.vacation-form_button,
+.vacation-form__submit,
+.vacation-form__cancel,
+.vacation-form__file-name {
+  font-family: var(--font-sans);
+}
