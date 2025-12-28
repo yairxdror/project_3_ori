@@ -32,3 +32,4 @@ BackEnd/.env
 .pdf
 *.zip
 echo_script.py
+.txt
