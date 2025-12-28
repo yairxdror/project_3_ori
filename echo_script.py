@@ -69,10 +69,10 @@ def echo_all_files(
 if __name__ == "__main__":
     echo_all_files(
         # BackEnd
-        # r"C:\Users\יאיר דרור\OneDrive\שולחן העבודה\לימודים\קורס של אורי\פרויקטים\project_3\BackEnd\src",
+        r"C:\Users\יאיר דרור\OneDrive\שולחן העבודה\Full Stack\קורס של אורי\פרויקטים\project_3\BackEnd\src",
 
         # FrontEnd
-        r"C:\Users\יאיר דרור\OneDrive\שולחן העבודה\לימודים\קורס של אורי\פרויקטים\project_3\FrontEnd\src",
+        # r"C:\Users\יאיר דרור\OneDrive\שולחן העבודה\Full Stack\קורס של אורי\פרויקטים\project_3\FrontEnd\src",
 
         ignore_exts=[
             # "css",
@@ -106,6 +106,6 @@ if __name__ == "__main__":
         ],
         dir_name_includes=[],  # e.g., ['templates']
 
-        # output_file="echo_BackEnd.txt",
-        output_file="echo_FrontEnd.txt",
+        output_file="echo_BackEnd.txt",
+        # output_file="echo_FrontEnd.txt",
     )

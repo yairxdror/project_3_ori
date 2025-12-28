@@ -1,0 +1,4853 @@
+=== App.css ===
+@import url("https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap");
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-color: #e0e5ec;
+  --jelly-color: #e0e5ec;
+  --shadow-light: #ffffff;
+  --shadow-dark: #a3b1c6;
+  --text-color: #4a4a4a;
+  --color-cream: #fdf3e3;
+  --font-sans: "Rubik", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Arial, sans-serif;
+  user-select: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+a,
+a img {
+  -webkit-user-drag: none;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+=== App.tsx ===
+import React from "react";
+import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
+import Home from "./Home/Home";
+import "./App.css";
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <Home />
+      </ToastProvider>
+    </AuthProvider>
+  );
+};
+
+export default App;
+
+
+=== main.tsx ===
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+
+=== api\authApi.ts ===
+import type { User } from "../types/models";
+import { httpClient } from "./httpClient";
+
+export interface LoginRequest {
+    email: string;
+    password: string;
+}
+
+export interface RegisterRequest {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+}
+
+export interface AuthResponse {
+    token: string;
+}
+
+// POST /api/user/login
+export async function login(data: LoginRequest): Promise<AuthResponse> {
+    const res = await httpClient.post<AuthResponse>("/user/login", data);
+    return res.data;
+}
+
+// POST /api/user/register
+export async function register(data: RegisterRequest): Promise<AuthResponse> {
+    const res = await httpClient.post<AuthResponse>("/user/register", data);
+    return res.data;
+}
+
+// GET /api/user/check email
+export async function checkEmailAvailability(
+    email: string
+): Promise<{ isFree: boolean }> {
+    const res = await httpClient.get<{ isFree: boolean }>("/user/check-email", {
+        params: { email },
+    });
+    return res.data;
+}
+
+// GET /api/user/me
+export async function getCurrentUser(): Promise<User> {
+    const res = await httpClient.get<User>("/user/me");
+    return res.data;
+}
+
+=== api\httpClient.ts ===
+import axios from "axios";
+import { appConfig } from "../config/appConfig";
+
+export const httpClient = axios.create({
+    baseURL: appConfig.apiBaseUrl,
+    withCredentials: false,
+});
+
+httpClient.interceptors.request.use((config) => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+httpClient.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+=== api\vacationsApi.ts ===
+import type {
+  PaginatedVacationsResponse,
+  Vacation,
+  VacationReportItem,
+  VacationsFilter,
+} from "../types/models";
+import { httpClient } from "./httpClient";
+
+// GET /api/vacations
+export interface GetVacationsParams {
+  page?: number;
+  pageSize?: number;
+  filter?: VacationsFilter;
+}
+
+// GET /api/vacations?page
+export async function getVacations(
+  params: GetVacationsParams = {}
+): Promise<PaginatedVacationsResponse> {
+  const res = await httpClient.get<PaginatedVacationsResponse>("/vacations", {
+    params,
+  });
+  return res.data;
+}
+
+// GET /api/vacations/:id
+export async function getVacationById(id: number): Promise<Vacation> {
+  const res = await httpClient.get<Vacation>(`/vacations/${id}`);
+  return res.data;
+}
+
+// Create or edit form
+export interface SaveVacationPayload {
+  destination: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  price: number;
+  imageFile?: File | null;
+}
+
+// POST /api/vacations – Create a new Vacation - Admin
+export async function createVacation(
+  data: SaveVacationPayload
+): Promise<Vacation> {
+  const formData = new FormData();
+  formData.append("destination", data.destination);
+  formData.append("description", data.description);
+  formData.append("startDate", data.startDate);
+  formData.append("endDate", data.endDate);
+  formData.append("price", String(data.price));
+
+  if (!data.imageFile) {
+    throw new Error("Image file is required for creating vacation");
+  }
+
+  formData.append("image", data.imageFile);
+
+  const res = await httpClient.post<Vacation>("/vacations", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  return res.data;
+}
+
+// PUT /api/vacations/:id – Vacation Update - Admin
+export async function updateVacation(
+  id: number,
+  data: SaveVacationPayload
+): Promise<Vacation> {
+  const formData = new FormData();
+  formData.append("destination", data.destination);
+  formData.append("description", data.description);
+  formData.append("startDate", data.startDate);
+  formData.append("endDate", data.endDate);
+  formData.append("price", String(data.price));
+
+  if (data.imageFile) {
+    formData.append("image", data.imageFile);
+  }
+
+  const res = await httpClient.put<Vacation>(`/vacations/${id}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+  return res.data;
+}
+
+// DELETE /api/vacations/:id – Delete vacation - Admin
+export async function deleteVacation(id: number): Promise<void> {
+  await httpClient.delete(`/vacations/${id}`);
+}
+
+// POST /api/vacations/:id/follow – Follow a vacation
+export async function followVacation(id: number): Promise<void> {
+  await httpClient.post(`/vacations/${id}/follow`);
+}
+
+// DELETE /api/vacations/:id/follow – Unfollow a vacation
+export async function unfollowVacation(id: number): Promise<void> {
+  await httpClient.delete(`/vacations/${id}/follow`);
+}
+
+// GET /api/vacations/report – Graph - Admin
+export async function getVacationsReport(): Promise<VacationReportItem[]> {
+  const res = await httpClient.get<VacationReportItem[]>("/vacations/report");
+  return res.data;
+}
+
+// GET /api/vacations/report/csv – Download CSV report (admin)
+export async function downloadVacationsCsv(): Promise<void> {
+  const res = await httpClient.get<Blob>("/vacations/report/csv", {
+    responseType: "blob",
+  });
+
+  const blob = new Blob([res.data], {
+    type: "text/csv;charset=utf-8",
+  });
+
+  const url = window.URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "vacations-report.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.URL.revokeObjectURL(url);
+}
+
+=== Components\common\Button\Button.css ===
+.btn {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  padding: 0.5rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+
+  box-shadow:
+    8px 8px 16px var(--shadow-dark),
+    -8px -8px 16px var(--shadow-light);
+
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease;
+}
+
+.btn:hover:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.btn:active:not(:disabled):not([aria-disabled="true"]) {
+  box-shadow:
+    inset 5px 5px 10px var(--shadow-dark),
+    inset -5px -5px 10px var(--shadow-light);
+  transform: translateY(0) scale(0.98);
+}
+
+.btn--sm {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.btn--icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+}
+
+.btn--full-width {
+  width: 100%;
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+  transition: none;
+  pointer-events: none;
+}
+
+/* variants */
+.btn--primary {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: #1d4ed8;
+}
+
+.btn--secondary {
+  background-color: #e5e7eb;
+  color: #000000;
+}
+
+.btn--secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: #d1d5db;
+}
+
+.btn--danger {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.btn--danger:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: #dc2626;
+}
+
+.btn--ghost {
+  background-color: transparent;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+
+.btn--ghost:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: #d1d5db;
+}
+
+/* Active is unique only to Primary (blue) and Danger (red) */
+.btn.btn--primary:active:not(:disabled):not([aria-disabled="true"]),
+.btn.btn--danger:active:not(:disabled):not([aria-disabled="true"]) {
+  box-shadow: inset -5px -5px 10px var(--shadow-light);
+  transform: translateY(0) scale(0.98);
+}
+
+=== Components\common\Button\Button.tsx ===
+import React from "react";
+import "./Button.css";
+
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonSize = "md" | "sm" | "icon";
+
+export interface ButtonProps extends React.HTMLAttributes<HTMLElement> {
+    variant?: ButtonVariant;
+    fullWidth?: boolean;
+    size?: ButtonSize;
+
+    as?: React.ElementType;
+
+    type?: React.ButtonHTMLAttributes<HTMLButtonElement>["type"];
+
+    disabled?: boolean;
+}
+
+const Button: React.FC<ButtonProps> = ({
+    variant = "primary",
+    fullWidth = false,
+    size = "md",
+    className = "",
+    children,
+    as: Component = "button",
+    disabled = false,
+    type = "button",
+    ...rest
+}) => {
+    const classes = [
+        "btn",
+        `btn--${variant}`,
+        `btn--${size}`,
+        fullWidth ? "btn--full-width" : "",
+        className,
+    ]
+        .filter(Boolean)
+        .join(" ");
+
+    const commonProps: any = {
+        className: classes,
+        ...rest,
+    };
+
+    if (Component === "button") {
+        commonProps.disabled = disabled;
+        commonProps.type = type;
+    } else {
+        commonProps["aria-disabled"] = disabled ? "true" : undefined;
+    }
+
+    return <Component {...commonProps}>{children}</Component>;
+};
+
+export default Button;
+
+=== Components\common\Checkbox\Checkbox.css ===
+.checkbox-field {
+  margin-bottom: 0.75rem;
+}
+
+.checkbox-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.checkbox-field__input {
+  width: 16px;
+  height: 16px;
+}
+
+=== Components\common\Checkbox\Checkbox.tsx ===
+import React from "react";
+import "./Checkbox.css";
+
+export interface CheckboxProps
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    "type"
+  > {
+  label?: string;
+  wrapperClassName?: string;
+}
+
+const Checkbox: React.FC<CheckboxProps> = ({
+  id,
+  label,
+  wrapperClassName = "",
+  className = "",
+  ...rest
+}) => {
+  const wrapperClasses = ["checkbox-field", wrapperClassName]
+    .filter(Boolean)
+    .join(" ");
+
+  const inputClasses = ["checkbox-field__input", className]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={wrapperClasses}>
+      <label className="checkbox-field__label">
+        <input
+          id={id}
+          type="checkbox"
+          className={inputClasses}
+          {...rest}
+        />
+        {label && (
+          <span className="checkbox-field__text">{label}</span>
+        )}
+      </label>
+    </div>
+  );
+};
+
+export default Checkbox;
+
+=== Components\common\ConfirmDialog\ConfirmDialog.css ===
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.confirm-card {
+  width: min(460px, 100%);
+  background: var(--jelly-color);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    20px 20px 60px var(--shadow-dark),
+    -20px -20px 60px var(--shadow-light);
+  padding: 18px 18px 16px;
+}
+
+.confirm-title {
+  margin: 0 0 8px 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.confirm-desc {
+  margin: 0 0 14px 0;
+  color: #374151;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+=== Components\common\ConfirmDialog\ConfirmDialog.tsx ===
+import React from "react";
+import "./ConfirmDialog.css";
+import Button from "../Button/Button";
+
+type Props = {
+  open: boolean;
+  title: string;
+  description?: string;
+  confirmText?: string;
+  cancelText?: string;
+  isBusy?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+const ConfirmDialog: React.FC<Props> = ({
+  open,
+  title,
+  description,
+  confirmText = "Delete",
+  cancelText = "Cancel",
+  isBusy = false,
+  onConfirm,
+  onCancel,
+}) => {
+  if (!open) return null;
+
+  return (
+    <div className="confirm-overlay" role="dialog" aria-modal="true">
+      <div className="confirm-card">
+        <h3 className="confirm-title">{title}</h3>
+        {description && <p className="confirm-desc">{description}</p>}
+
+        <div className="confirm-actions">
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={isBusy}>
+            {cancelText}
+          </Button>
+          <Button type="button" variant="danger" onClick={onConfirm} disabled={isBusy}>
+            {isBusy ? "Deleting..." : confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ConfirmDialog;
+
+=== Components\common\ErrorMessage\ErrorMessage.css ===
+.error-message {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  display: inline-block;
+}
+
+=== Components\common\ErrorMessage\ErrorMessage.tsx ===
+import React from "react";
+import "./ErrorMessage.css";
+
+interface ErrorMessageProps {
+  message?: string | null;
+  className?: string;
+}
+
+const ErrorMessage: React.FC<ErrorMessageProps> = ({
+  message,
+  className = "",
+}) => {
+  if (!message) return null;
+
+  const classes = ["error-message", className].filter(Boolean).join(" ");
+
+  return <div className={classes}>{message}</div>;
+};
+
+export default ErrorMessage;
+
+=== Components\common\Input\Input.css ===
+.input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.9rem;
+}
+
+.input-field__label {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.input-field__input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-field__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+}
+
+.input-field__input--error {
+  border-color: #ef4444;
+}
+
+.input-field__error {
+  margin-top: 0.1rem;
+}
+
+.input-field__control {
+  position: relative;
+}
+
+.input-field__end-adornment {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+=== Components\common\Input\Input.tsx ===
+import React from "react";
+import "./Input.css";
+import ErrorMessage from "../ErrorMessage/ErrorMessage";
+
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string | null;
+  wrapperClassName?: string;
+  endAdornment?: React.ReactNode;
+}
+
+const Input: React.FC<InputProps> = ({
+  id,
+  label,
+  error,
+  wrapperClassName = "",
+  className = "",
+  endAdornment,
+  ...rest
+}) => {
+  const wrapperClasses = ["input-field", wrapperClassName]
+    .filter(Boolean)
+    .join(" ");
+
+  const inputClasses = [
+    "input-field__input",
+    error ? "input-field__input--error" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={wrapperClasses}>
+      {label && id && (
+        <label className="input-field__label" htmlFor={id}>
+          {label}
+        </label>
+      )}
+
+      <div className="input-field__control">
+        <input id={id} className={inputClasses} {...rest} />
+
+        {endAdornment && (
+          <div className="input-field__end-adornment">
+            {endAdornment}
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <ErrorMessage
+          className="input-field__error"
+          message={error}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Input;
+
+=== Components\common\Pagination\Pagination.css ===
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  direction: ltr;
+  flex-wrap: nowrap;
+  margin-top: 30px;
+}
+
+.pagination__pages {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  direction: ltr;
+  flex-wrap: nowrap;
+}
+
+.pagination .btn {
+  height: 2.5rem;
+  min-height: 2.5rem;
+  line-height: 1;
+  box-sizing: border-box;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Number buttons */
+.pagination__page.btn {
+  min-width: 2.5rem;
+  padding-inline: 0.75rem;
+
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(5px);
+}
+
+/* Next/Previous */
+.pagination__button.btn {
+  padding-inline: 1rem;
+  white-space: nowrap;
+
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(5px);
+}
+
+.pagination .btn:hover:not(:disabled):not([aria-disabled="true"]),
+.pagination .btn:active:not(:disabled):not([aria-disabled="true"]),
+.pagination .btn:focus:not(:disabled):not([aria-disabled="true"]),
+.pagination .btn:focus-visible:not(:disabled):not([aria-disabled="true"]) {
+  transform: none !important;
+}
+
+.pagination .btn:focus-visible {
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .pagination {
+    gap: 0.5rem;
+  }
+
+  .pagination .btn {
+    height: 2.25rem;
+    min-height: 2.25rem;
+  }
+
+  .pagination__page.btn {
+    min-width: 2.25rem;
+    padding-inline: 0.6rem;
+  }
+
+  .pagination__button.btn {
+    padding-inline: 0.85rem;
+  }
+}
+
+=== Components\common\Pagination\Pagination.tsx ===
+import React from "react";
+import "./Pagination.css";
+import Button from "../Button/Button";
+
+interface PaginationProps {
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+    className?: string;
+}
+
+const Pagination: React.FC<PaginationProps> = ({
+    currentPage,
+    totalPages,
+    onPageChange,
+    className = "",
+}) => {
+    if (totalPages <= 1) return null;
+
+    const wrapperClasses = ["pagination", className]
+        .filter(Boolean)
+        .join(" ");
+
+    const handlePrev = () => {
+        if (currentPage > 1) {
+            onPageChange(currentPage - 1);
+        }
+    };
+
+    const handleNext = () => {
+        if (currentPage < totalPages) {
+            onPageChange(currentPage + 1);
+        }
+    };
+
+    const pages: number[] = [];
+    for (let p = 1; p <= totalPages; p++) {
+        pages.push(p);
+    }
+
+    return (
+        <div className={wrapperClasses}>
+            <Button
+                type="button"
+                variant="secondary"
+                onClick={handlePrev}
+                disabled={currentPage <= 1}
+                className="pagination__button"
+            >
+                Previous
+            </Button>
+
+            <div className="pagination__pages">
+                {pages.map((page) => (
+                    <Button
+                        key={page}
+                        type="button"
+                        variant={page === currentPage ? "primary" : "ghost"}
+                        onClick={() => onPageChange(page)}
+                        className="pagination__page"
+                    >
+                        {page}
+                    </Button>
+                ))}
+            </div>
+
+            <Button
+                type="button"
+                variant="secondary"
+                onClick={handleNext}
+                disabled={currentPage >= totalPages}
+                className="pagination__button"
+            >
+                Next
+            </Button>
+        </div>
+    );
+};
+
+export default Pagination;
+
+=== Components\common\PasswordInput\PasswordInput.css ===
+.password-toggle {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+  color: rgba(55, 65, 81, 0.95);
+}
+
+.password-toggle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+}
+
+.password-toggle:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.password-toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.password-toggle svg {
+  width: 75%;
+  height: 75%;
+}
+
+/* Eye movement follows the mouse */
+.eye-translate {
+  --eye-x: 0%;
+  --eye-y: 0%;
+  transform: translate(var(--eye-x), var(--eye-y));
+  transition: transform 140ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Blink */
+.eye-scale {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.password-toggle[data-blink="true"] .eye-scale {
+  transform: scaleY(0.12);
+}
+
+.lid {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 160ms ease, opacity 120ms ease;
+  opacity: 1;
+}
+
+/* Closed state */
+.password-toggle[data-state="closed"] .lid--upper {
+  transform: translateY(8px);
+  opacity: 0;
+  transition-delay: 0ms, 1ms;
+}
+
+/* Open state */
+.password-toggle[data-state="open"] .lid--upper {
+  transform: translateY(0);
+  opacity: 1;
+  transition-delay: 0ms, 0ms;
+}
+
+.password-toggle[data-state="closed"] .eye-translate {
+  opacity: 0;
+}
+
+
+/* sr-only (screen-reader only) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+=== Components\common\PasswordInput\PasswordInput.tsx ===
+import React from "react";
+import Input, { type InputProps } from "../Input/Input";
+import "./PasswordInput.css";
+
+type PasswordInputProps = Omit<InputProps, "type" | "endAdornment"> & {
+  scrambleDurationMs?: number;
+};
+
+const SCRAMBLE_CHARS =
+  'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`~,.<>?/;":][}{+_)(*&^%$#@!±=-§';
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function randomChar() {
+  return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+}
+
+function mapRange(inMin: number, inMax: number, outMin: number, outMax: number, v: number) {
+  const t = (v - inMin) / (inMax - inMin);
+  return outMin + (outMax - outMin) * t;
+}
+
+const PasswordInput: React.FC<PasswordInputProps> = ({
+  value = "",
+  disabled,
+  style,
+  scrambleDurationMs = 750,
+  ...rest
+}) => {
+  const [revealed, setRevealed] = React.useState(false);
+  const [animating, setAnimating] = React.useState(false);
+  const [blink, setBlink] = React.useState(false);
+  const [lidClosed, setLidClosed] = React.useState(false);
+  const [displayValue, setDisplayValue] = React.useState(String(value));
+
+  const buttonRef = React.useRef<HTMLButtonElement | null>(null);
+  const eyeTranslateRef = React.useRef<SVGGElement | null>(null);
+  const eyeMoveRafRef = React.useRef<number | null>(null);
+  const scrambleRafRef = React.useRef<number | null>(null);
+
+  const effectiveDisabled = Boolean(disabled) || animating;
+
+  // Sync display with the real value when animation is not running
+  React.useEffect(() => {
+    if (!animating) setDisplayValue(String(value ?? ""));
+  }, [value, animating]);
+
+  // Random blink when the eye is open (while the password is hidden)
+  React.useEffect(() => {
+    if (revealed || effectiveDisabled) return;
+
+    let timer: number | null = null;
+    let cancel = false;
+
+    const schedule = () => {
+      if (cancel) return;
+      const delay = Math.floor(Math.random() * (8000 - 2000 + 1)) + 2000; // 2-8 seconds
+      timer = window.setTimeout(() => {
+        setBlink(true);
+        window.setTimeout(() => setBlink(false), 120);
+        schedule();
+      }, delay);
+    };
+
+    schedule();
+
+    return () => {
+      cancel = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [revealed, effectiveDisabled]);
+
+  // Pupil movement follows the mouse
+  React.useEffect(() => {
+    let resetTimer: number | null = null;
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!buttonRef.current || !eyeTranslateRef.current) return;
+
+      const eyeRect = buttonRef.current.getBoundingClientRect();
+
+      // Similar to the original logic: map ranges to percent movement
+      const xPercent = clamp(
+        mapRange(-100, 100, 30, -30, eyeRect.x - e.clientX),
+        -30,
+        30
+      );
+      const yPercent = clamp(
+        mapRange(-100, 100, 30, -30, eyeRect.y - e.clientY),
+        -30,
+        30
+      );
+
+      if (eyeMoveRafRef.current) cancelAnimationFrame(eyeMoveRafRef.current);
+      eyeMoveRafRef.current = requestAnimationFrame(() => {
+        const el = eyeTranslateRef.current;
+        if (!el) return;
+        el.style.setProperty("--eye-x", `${xPercent}%`);
+        el.style.setProperty("--eye-y", `${yPercent}%`);
+      });
+
+      if (resetTimer) window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => {
+        const el = eyeTranslateRef.current;
+        if (!el) return;
+        el.style.setProperty("--eye-x", `0%`);
+        el.style.setProperty("--eye-y", `0%`);
+      }, 2000);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      if (resetTimer) window.clearTimeout(resetTimer);
+      if (eyeMoveRafRef.current) cancelAnimationFrame(eyeMoveRafRef.current);
+      if (scrambleRafRef.current) cancelAnimationFrame(scrambleRafRef.current);
+    };
+  }, []);
+
+  const runToggleAnimation = React.useCallback(
+    (nextReveal: boolean) => {
+      const snapshot = String(value ?? "");
+      const len = snapshot.length;
+
+      // Close/open eye immediately at the start of the toggle, as in the original code
+      setLidClosed(nextReveal);
+
+      // When closing (revealing the password) stop blinking
+      if (nextReveal) setBlink(false);
+
+      setAnimating(true);
+
+      const start = performance.now();
+
+      const step = (now: number) => {
+        const p = clamp((now - start) / scrambleDurationMs, 0, 1);
+        const n = Math.floor(len * p);
+
+        if (nextReveal) {
+          // reveal: random prefix, suffix dots
+          const prefix = Array.from({ length: n }, () => randomChar()).join("");
+          const suffix = "•".repeat(Math.max(0, len - n));
+          setDisplayValue(prefix + suffix);
+        } else {
+          // show original text
+          const prefix = "•".repeat(n);
+          const suffix = snapshot.slice(n);
+          setDisplayValue(prefix + suffix);
+        }
+
+        if (p < 1) {
+          scrambleRafRef.current = requestAnimationFrame(step);
+          return;
+        }
+
+        // Finish
+        if (nextReveal) {
+          setRevealed(true);
+          setDisplayValue(snapshot);
+        } else {
+          setRevealed(false);
+          setDisplayValue(snapshot);
+        }
+        setAnimating(false);
+      };
+
+      // If a previous RAF is running, cancel it before starting a new one
+      if (scrambleRafRef.current) cancelAnimationFrame(scrambleRafRef.current);
+      scrambleRafRef.current = requestAnimationFrame(step);
+    },
+    [scrambleDurationMs, value]
+  );
+
+  const handleToggle = () => {
+    if (effectiveDisabled) return;
+    runToggleAnimation(!revealed);
+  };
+
+  const inputType = revealed || animating ? "text" : "password";
+
+  const toggleButton = (
+    <button
+      ref={buttonRef}
+      type="button"
+      className="password-toggle"
+      onClick={handleToggle}
+      aria-pressed={revealed}
+      aria-label={revealed ? "Hide password" : "Show password"}
+      title={revealed ? "Hide password" : "Reveal password"}
+      disabled={effectiveDisabled}
+      data-state={lidClosed ? "closed" : "open"}
+      data-blink={blink ? "true" : "false"}
+    >
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          className="lid lid--upper"
+          d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          className="lid lid--lower"
+          d="M1 12C1 12 5 20 12 20C19 20 23 12 23 12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* עין (אישון) */}
+        <g className="eye-translate" ref={eyeTranslateRef}>
+          <g className="eye-scale">
+            <circle cy="12" cx="12" r="4" fill="currentColor" opacity="0.95" />
+          </g>
+        </g>
+      </svg>
+
+      <span className="sr-only">{revealed ? "Hide" : "Reveal"}</span>
+    </button>
+  );
+
+  return (
+    <Input
+      {...rest}
+      value={displayValue}
+      type={inputType}
+      disabled={effectiveDisabled}
+      endAdornment={toggleButton}
+      style={{
+        ...style,
+        paddingRight: "3.4rem",
+      }}
+    />
+  );
+};
+
+export default PasswordInput;
+
+=== Components\common\Toast\Toast.css ===
+.toast-viewport {
+  position: fixed;
+  top: auto;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background: var(--jelly-color);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    12px 12px 28px var(--shadow-dark),
+    -12px -12px 28px var(--shadow-light);
+  padding: 12px 12px 12px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  overflow: hidden;
+  transform: translateY(6px);
+  opacity: 0;
+  animation: toast-in 0.22s ease-out forwards;
+  position: relative;
+}
+
+.toast::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 16px 0 0 16px;
+  opacity: 0.95;
+}
+
+.toast--success::before {
+  background: #22c55e;
+}
+
+.toast--error::before {
+  background: #ef4444;
+}
+
+.toast--info::before {
+  background: #2563eb;
+}
+
+.toast__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #0f172a;
+}
+
+.toast__title {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-size: 0.95rem;
+}
+
+.toast__message {
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.35;
+}
+
+.toast__close {
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 10px;
+  opacity: 0.75;
+}
+
+.toast__close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+@keyframes toast-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+=== Components\common\Toast\ToastViewport.tsx ===
+import React from "react";
+import "./Toast.css";
+
+export type ToastVariant = "success" | "error" | "info";
+
+export type ToastItem = {
+  id: string;
+  variant: ToastVariant;
+  title?: string;
+  message: string;
+  durationMs: number;
+  createdAt: number;
+};
+
+type Props = {
+  toasts: ToastItem[];
+  onClose: (id: string) => void;
+};
+
+const ToastViewport: React.FC<Props> = ({ toasts, onClose }) => {
+  return (
+    <div className="toast-viewport" role="region" aria-label="Notifications">
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast toast--${t.variant}`} role="status" aria-live="polite">
+          <div className="toast__body">
+            {t.title && <div className="toast__title">{t.title}</div>}
+            <div className="toast__message">{t.message}</div>
+          </div>
+
+          <button
+            type="button"
+            className="toast__close"
+            onClick={() => onClose(t.id)}
+            aria-label="Close notification"
+            title="Close"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default ToastViewport;
+
+=== Components\vacations\VacationCard\VacationCard.css ===
+.vacation-card {
+  background: var(--jelly-color);
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  overflow: hidden;
+  box-shadow:
+    20px 20px 60px var(--shadow-dark),
+    -20px -20px 60px var(--shadow-light),
+    inset 0 0 0 transparent,
+    inset 0 0 0 transparent;
+  display: flex;
+  flex-direction: column;
+  direction: ltr;
+  text-align: left;
+  max-width: 340px;
+  margin-inline: auto;
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  animation: vacation-card-enter 0.35s ease-out forwards;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+  height: 100%;
+}
+
+.vacation-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.vacation-card__image-wrapper {
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+}
+
+.vacation-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vacation-card__content {
+  padding: 0.8rem 0.9rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.vacation-card__footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  padding-top: 1rem;
+}
+
+.vacation-card__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+  pointer-events: none;
+
+}
+
+.vacation-card__description {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.vacation-card__dates {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: auto;
+}
+
+.vacation-card__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.9rem;
+  margin-top: 0.4rem;
+  z-index: 1;
+  margin-bottom: 0.5rem;
+  margin: 0
+}
+
+.vacation-card__price {
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.vacation-card__followers {
+  color: #4b5563;
+}
+
+.vacation-card__actions {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.vacation-card__action {
+  flex: 1;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+@keyframes vacation-card-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 600px) {
+  .vacation-card {
+    max-width: 100%;
+  }
+}
+
+=== Components\vacations\VacationCard\VacationCard.tsx ===
+import React from "react";
+import "./VacationCard.css";
+import type { Vacation } from "../../../types/models";
+import { appConfig } from "../../../config/appConfig";
+import Button from "../../common/Button/Button";
+
+interface VacationCardProps {
+  vacation: Vacation;
+  isAdmin: boolean;
+  onFollow?: (id: number) => void;
+  onUnfollow?: (id: number) => void;
+  onEdit?: (id: number) => void;
+  onDelete?: (id: number) => void;
+}
+
+const VacationCard: React.FC<VacationCardProps> = ({
+  vacation,
+  isAdmin,
+  onFollow,
+  onUnfollow,
+  onEdit,
+  onDelete,
+}) => {
+  const {
+    id,
+    destination,
+    description,
+    startDate,
+    endDate,
+    price,
+    image,
+    followersCount,
+    isFollowedByCurrentUser,
+  } = vacation;
+
+  const imageSrc = image.startsWith("http")
+    ? image
+    : `${appConfig.imagesBaseUrl}/${image}`;
+
+  const handleFollowClick = () => {
+    if (isFollowedByCurrentUser) {
+      onUnfollow?.(id);
+    } else {
+      onFollow?.(id);
+    }
+  };
+
+  const handleEditClick = () => {
+    onEdit?.(id);
+  };
+
+  const handleDeleteClick = () => {
+    onDelete?.(id);
+  };
+
+  return (
+    <div className="vacation-card">
+      <div className="vacation-card__image-wrapper">
+        <img
+          src={imageSrc}
+          alt={destination}
+          className="vacation-card__image"
+        />
+      </div>
+
+      <div className="vacation-card__content">
+        <h3 className="vacation-card__title">{destination}</h3>
+
+        <p className="vacation-card__description">{description}</p>
+
+        <div className="vacation-card__footer">
+          <div className="vacation-card__dates">
+            <span>
+              {new Date(startDate).toLocaleDateString()} –{" "}
+              {new Date(endDate).toLocaleDateString()}
+            </span>
+          </div>
+
+          <div className="vacation-card__meta">
+            <span className="vacation-card__price">${price.toFixed(2)}</span>
+            <span className="vacation-card__followers">Followers: {followersCount}</span>
+          </div>
+
+          <div className="vacation-card__actions">
+            {!isAdmin && (
+              <Button
+                variant={isFollowedByCurrentUser ? "secondary" : "primary"}
+                onClick={handleFollowClick}
+                className="vacation-card__action"
+              >
+                {isFollowedByCurrentUser ? "Unfollow" : "Follow"}
+              </Button>
+            )}
+
+            {isAdmin && (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={handleEditClick}
+                  className="vacation-card__action"
+                >
+                  Edit
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDeleteClick}
+                  className="vacation-card__action"
+                >
+                  Delete
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default VacationCard;
+
+=== Components\vacations\VacationsList\VacationsList.css ===
+.vacations-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(277px, 320px));
+  gap: 3rem;
+  justify-content: center;
+}
+
+.vacations-list__loading,
+.vacations-list__error,
+.vacations-list__empty {
+  background-color: #ffffff;
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.03);
+  font-size: 0.95rem;
+}
+
+/* Staggered entry animation for cards in the list */
+.vacations-list .vacation-card:nth-child(1) {
+  animation-delay: 0.02s;
+}
+
+.vacations-list .vacation-card:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.vacations-list .vacation-card:nth-child(3) {
+  animation-delay: 0.10s;
+}
+
+.vacations-list .vacation-card:nth-child(4) {
+  animation-delay: 0.14s;
+}
+
+.vacations-list .vacation-card:nth-child(5) {
+  animation-delay: 0.18s;
+}
+
+.vacations-list .vacation-card:nth-child(6) {
+  animation-delay: 0.22s;
+}
+
+@media (max-width: 600px) {
+  .vacations-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    justify-content: stretch;
+  }
+}
+
+=== Components\vacations\VacationsList\VacationsList.tsx ===
+import React from "react";
+import type { Vacation } from "../../../types/models";
+import "./VacationsList.css";
+import VacationCard from "../VacationCard/VacationCard";
+
+interface VacationsListProps {
+  vacations: Vacation[];
+  isAdmin: boolean;
+  isLoading?: boolean;
+  error?: string | null;
+
+  onFollow?: (id: number) => void;
+  onUnfollow?: (id: number) => void;
+  onEdit?: (id: number) => void;
+  onDelete?: (id: number) => void;
+}
+
+const VacationsList: React.FC<VacationsListProps> = ({
+  vacations,
+  isAdmin,
+  isLoading = false,
+  error,
+  onFollow,
+  onUnfollow,
+  onEdit,
+  onDelete,
+}) => {
+  if (isLoading) {
+    return (
+      <div className="vacations-list__loading">
+        Loading vacations...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="vacations-list__error">
+        Error: {error}
+      </div>
+    );
+  }
+
+  if (!vacations.length) {
+    return (
+      <div className="vacations-list__empty">
+        No vacations to display.
+      </div>
+    );
+  }
+
+  return (
+    <div className="vacations-list">
+      {vacations.map((vacation) => (
+        <VacationCard
+          key={vacation.id}
+          vacation={vacation}
+          isAdmin={isAdmin}
+          onFollow={onFollow}
+          onUnfollow={onUnfollow}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  );
+};
+
+export default VacationsList;
+
+=== config\appConfig.ts ===
+export const appConfig = {
+  apiBaseUrl: "http://localhost:3030/api",
+  imagesBaseUrl: "http://localhost:3030/images",
+};
+
+=== context\AuthContext.tsx ===
+import type { User } from "../types/models";
+import React, {
+    createContext,
+    useState,
+    useEffect,
+    type ReactNode,
+} from "react";
+
+import {
+    login as apiLogin,
+    register as apiRegister,
+    getCurrentUser,
+    type LoginRequest,
+    type RegisterRequest,
+} from "../api/authApi";
+
+interface AuthContextValue {
+    user: User | null;
+    token: string | null;
+    isLoading: boolean;
+    authError: string | null;
+    login: (data: LoginRequest) => Promise<void>;
+    register: (data: RegisterRequest) => Promise<void>;
+    logout: () => void;
+    reloadUser: () => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthContextValue | undefined>(
+    undefined
+);
+
+interface AuthProviderProps {
+    children: ReactNode;
+}
+
+function extractErrorMessage(error: any): string {
+    // Try to extract an error message from the server response
+    const messageFromResponse =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message;
+
+    if (typeof messageFromResponse === "string") {
+        return messageFromResponse;
+    }
+
+    return "Authentication error";
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+    const [user, setUser] = useState<User | null>(null);
+    const [token, setToken] = useState<string | null>(
+        () => localStorage.getItem("authToken")
+    );
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [authError, setAuthError] = useState<string | null>(null);
+
+    // Load user from server if a token is stored
+    useEffect(() => {
+        if (!token) return;
+
+        const init = async () => {
+            setIsLoading(true);
+            setAuthError(null);
+            try {
+                const currentUser = await getCurrentUser();
+                setUser(currentUser);
+            } catch (error) {
+                console.error("Failed to load current user:", error);
+                setUser(null);
+                setToken(null);
+                localStorage.removeItem("authToken");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        init();
+    }, [token]);
+
+    // Login
+    const handleLogin = async (data: LoginRequest): Promise<void> => {
+        setIsLoading(true);
+        setAuthError(null);
+
+        try {
+            const res = await apiLogin(data); // { token }
+            localStorage.setItem("authToken", res.token);
+            setToken(res.token);
+
+            const currentUser = await getCurrentUser();
+            setUser(currentUser);
+        } catch (error: any) {
+            console.error("Login error:", error);
+            const msg = extractErrorMessage(error);
+            setAuthError(msg);
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem("authToken");
+            throw error; // so the component can receive the error if it wants
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Register
+    const handleRegister = async (data: RegisterRequest): Promise<void> => {
+        setIsLoading(true);
+        setAuthError(null);
+
+        try {
+            const res = await apiRegister(data); // { token }
+            localStorage.setItem("authToken", res.token);
+            setToken(res.token);
+
+            const currentUser = await getCurrentUser();
+            setUser(currentUser);
+        } catch (error: any) {
+            console.error("Register error:", error);
+            const msg = extractErrorMessage(error);
+            setAuthError(msg);
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem("authToken");
+            throw error;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Logout
+    const handleLogout = () => {
+        setUser(null);
+        setToken(null);
+        setAuthError(null);
+        localStorage.removeItem("authToken");
+    };
+
+    // Explicit reload of the current user
+    const reloadUser = async (): Promise<void> => {
+        if (!token) {
+            setUser(null);
+            return;
+        }
+
+        setIsLoading(true);
+        setAuthError(null);
+
+        try {
+            const currentUser = await getCurrentUser();
+            setUser(currentUser);
+        } catch (error) {
+            console.error("Reload user error:", error);
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem("authToken");
+            const msg = extractErrorMessage(error);
+            setAuthError(msg);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const value: AuthContextValue = {
+        user,
+        token,
+        isLoading,
+        authError,
+        login: handleLogin,
+        register: handleRegister,
+        logout: handleLogout,
+        reloadUser,
+    };
+
+    return (
+        <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+    );
+};
+
+=== context\ToastContext.tsx ===
+import React, { createContext, useCallback, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import type { ToastItem, ToastVariant } from "../Components/common/Toast/ToastViewport";
+import ToastViewport from "../Components/common/Toast/ToastViewport";
+
+type ToastInput = {
+  variant: ToastVariant;
+  title?: string;
+  message: string;
+  durationMs?: number;
+};
+
+type ToastContextValue = {
+  push: (toast: ToastInput) => string;
+  success: (message: string, title?: string, durationMs?: number) => string;
+  error: (message: string, title?: string, durationMs?: number) => string;
+  info: (message: string, title?: string, durationMs?: number) => string;
+  remove: (id: string) => void;
+  clear: () => void;
+};
+
+export const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+
+export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const remove = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const clear = useCallback(() => {
+    setToasts([]);
+  }, []);
+
+  const push = useCallback(
+    (input: ToastInput) => {
+      const id = crypto.randomUUID();
+      const durationMs = input.durationMs ?? (input.variant === "error" ? 4500 : 2800);
+
+      const item: ToastItem = {
+        id,
+        variant: input.variant,
+        title: input.title,
+        message: input.message,
+        durationMs,
+        createdAt: Date.now(),
+      };
+
+      setToasts((prev) => [...prev, item]);
+
+      window.setTimeout(() => remove(id), durationMs);
+      return id;
+    },
+    [remove]
+  );
+
+  const value = useMemo<ToastContextValue>(
+    () => ({
+      push,
+      success: (message, title, durationMs) => push({ variant: "success", message, title, durationMs }),
+      error: (message, title, durationMs) => push({ variant: "error", message, title, durationMs }),
+      info: (message, title, durationMs) => push({ variant: "info", message, title, durationMs }),
+      remove,
+      clear,
+    }),
+    [push, remove, clear]
+  );
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+
+      {createPortal(
+        <ToastViewport toasts={toasts} onClose={remove} />,
+        document.body
+      )}
+    </ToastContext.Provider>
+  );
+};
+
+=== Home\Home.css ===
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+/* Top menu */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header__left {
+  transform: translateX(-7%);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #7b879b;
+  text-shadow:
+    -1px -1px 2px rgba(255, 255, 255, 0.9),
+    2px 2px 4px rgba(163, 177, 198, 0.75);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.app-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+}
+
+/* Menu links without underline even on hover */
+.app-header__nav a,
+.app-header__nav a:visited,
+.app-header__nav a:hover {
+  color: #0f172a;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.app-header__user {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+/* Single link */
+.app-header__link {
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 0.9rem;
+
+}
+
+.app-header__link:hover {
+  text-decoration: underline;
+}
+
+/* Admin tabs — glass bubble */
+.nav-segmented {
+  position: absolute;
+  transform: translateX(-138%);
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 999px;
+  background: #DFE4F4;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 12px 45px rgba(-22, 23, 42, 0.10);
+  backdrop-filter: blur(20px);
+  direction: ltr;
+}
+
+
+/* Tab item */
+.nav-segmented__item {
+  position: relative;
+  z-index: 1;
+  padding: 0.55rem 1.4rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: rgba(226, 232, 240, 0.9);
+  text-decoration: none;
+  text-align: center;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  outline: none;
+  transition:
+    color 0.25s ease,
+    font-weight 0.25s ease,
+    transform 0.15s ease;
+}
+
+.nav-segmented__item:hover {
+  color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.nav-segmented__item:focus-visible {
+  outline: none;
+}
+
+/* Indicator bubble */
+.nav-segmented__indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.97);
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.35),
+    0 0 0 1px rgba(148, 163, 184, 0.22);
+  pointer-events: none;
+  width: var(--indicator-width, 80px);
+  transform: translateX(var(--indicator-x, 0px));
+  transition:
+    transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
+    width 0.28s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.18s ease-out;
+}
+
+/* Active tab */
+.nav-segmented[data-active="vacations"] .nav-segmented__item:nth-of-type(1),
+.nav-segmented[data-active="add"] .nav-segmented__item:nth-of-type(2),
+.nav-segmented[data-active="reports"] .nav-segmented__item:nth-of-type(3) {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+
+/* Planes + cloud under the plane */
+.home-plane {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  opacity: 0.95;
+  left: -5%;
+  top: 120%;
+  animation: plane-left-home 12s ease-in-out infinite;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%,
+      rgba(255, 255, 255, 0.95),
+      rgba(253, 243, 227, 0.25));
+  box-shadow:
+    10px 10px 26px rgba(163, 177, 198, 0.9),
+    -8px -8px 20px rgba(255, 255, 255, 0.9);
+}
+
+/* The plane icon */
+.home-plane__icon {
+  font-size: 2.6rem;
+  color: var(--plane-cream);
+  text-shadow:
+    0 6px 14px rgba(163, 177, 198, 0.85),
+    -1px -1px 2px rgba(255, 255, 255, 0.95);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+/* Cloud under the plane */
+.home-plane__cloud {
+  position: absolute;
+  top: 72%;
+  left: 50%;
+  width: 58px;
+  height: 24px;
+  background: linear-gradient(to bottom, #ffffff, #f6eee0);
+  border-radius: 999px;
+  box-shadow:
+    0 6px 12px rgba(163, 177, 198, 0.55),
+    -2px -2px 4px rgba(255, 255, 255, 0.95);
+  transform: translateX(-50%);
+  animation: cloud-drift 9s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  animation-delay: 2s;
+  will-change: transform;
+}
+
+/* Small puffs for the cloud */
+.home-plane__cloud::before,
+.home-plane__cloud::after {
+  content: "";
+  position: absolute;
+  background: inherit;
+  border-radius: inherit;
+}
+
+.home-plane__cloud::before {
+  width: 28px;
+  height: 20px;
+  top: -10px;
+  left: 6px;
+}
+
+.home-plane__cloud::after {
+  width: 22px;
+  height: 16px;
+  top: -8px;
+  right: 4px;
+}
+
+.home-plane--right .home-plane__icon {
+  transform: scaleX(-1);
+}
+
+/* Plane animation */
+@keyframes plane-left-home {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+
+  25% {
+    transform: translate3d(10px, -16px, 0) rotate(-4deg);
+  }
+
+  50% {
+    transform: translate3d(2px, -28px, 0) rotate(2deg);
+  }
+
+  75% {
+    transform: translate3d(-6px, -14px, 0) rotate(-2deg);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+}
+
+
+/* Cloud moves down and expands slightly */
+@keyframes cloud-drift {
+  0% {
+    transform: translate(-50%, 0) scale(0.94);
+  }
+
+  35% {
+    transform: translate(-64%, 7px) scale(1.08);
+  }
+
+  70% {
+    transform: translate(-46%, 12px) scale(1.02);
+  }
+
+  100% {
+    transform: translate(-50%, 0) scale(0.94);
+  }
+}
+
+@media (max-width: 600px) {
+  .home-plane {
+    width: 58px;
+    height: 58px;
+  }
+
+  .home-plane__icon {
+    font-size: 2.2rem;
+  }
+
+  .home-plane__cloud {
+    width: 44px;
+    height: 16px;
+  }
+
+  .home-plane--left {
+    left: 3%;
+    top: 110%;
+    animation: plane-left-float 7s ease-in-out infinite;
+  }
+}
+
+=== Home\Home.tsx ===
+import {
+  HashRouter as BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  NavLink,
+  Outlet,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import RegisterPage from "../pages/Auth/RegisterPage";
+import VacationsPage from "../pages/Vacations/VacationsPage/VacationsPage";
+import LoginPage from "../pages/Auth/LoginPage";
+import React from "react";
+import "./Home.css";
+import AddVacationPage from "../pages/Vacations/VacationForm/AddVacationPage";
+import EditVacationPage from "../pages/Vacations/VacationForm/EditVacationPage";
+import ReportsPage from "../pages/Vacations/ReportsPage/ReportsPage";
+import Button from "../Components/common/Button/Button";
+
+/* Redirect from home based on authentication status */
+const HomeRedirect: React.FC = () => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading user data...</div>;
+  }
+
+  if (user) {
+    return <Navigate to="/vacations" replace />;
+  }
+
+  return <Navigate to="/login" replace />;
+};
+
+/* Route guard – authenticated users only */
+const RequireAuth: React.FC<{ children: React.ReactElement }> = ({
+  children,
+}) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading user data...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+/* Route guard – admin only */
+const RequireAdmin: React.FC<{ children: React.ReactElement }> = ({
+  children,
+}) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading user data...</div>;
+  }
+
+  if (!user || !user.isAdmin) {
+    return <Navigate to="/vacations" replace />;
+  }
+
+  return children;
+};
+
+// Admin tabs: Vacations / Add Vacation / Reports
+const AdminTabs: React.FC = () => {
+  const location = useLocation();
+
+  const [indicatorX, setIndicatorX] = React.useState(0);
+  const [indicatorWidth, setIndicatorWidth] = React.useState(0);
+
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const vacationsRef = React.useRef<HTMLAnchorElement | null>(null);
+  const addRef = React.useRef<HTMLAnchorElement | null>(null);
+  const reportsRef = React.useRef<HTMLAnchorElement | null>(null);
+
+  let active: "vacations" | "add" | "reports" = "vacations";
+
+  if (location.pathname.startsWith("/admin/vacations/new")) {
+    active = "add";
+  } else if (location.pathname.startsWith("/admin/reports")) {
+    active = "reports";
+  } else if (
+    location.pathname.startsWith("/vacations") ||
+    location.pathname.startsWith("/admin/vacations/")
+  ) {
+    active = "vacations";
+  }
+
+  const updateIndicator = React.useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let el: HTMLAnchorElement | null = null;
+    if (active === "vacations") el = vacationsRef.current;
+    else if (active === "add") el = addRef.current;
+    else el = reportsRef.current;
+
+    if (!el) return;
+
+    const x = el.offsetLeft;
+    const w = el.offsetWidth;
+
+    setIndicatorX(x);
+    setIndicatorWidth(w);
+  }, [active]);
+
+  React.useLayoutEffect(() => {
+    updateIndicator();
+  }, [updateIndicator]);
+
+  React.useEffect(() => {
+    window.addEventListener("resize", updateIndicator);
+    return () => {
+      window.removeEventListener("resize", updateIndicator);
+    };
+  }, [updateIndicator]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="nav-segmented"
+      data-active={active}
+      style={
+        {
+          "--indicator-x": `${indicatorX}px`,
+          "--indicator-width": `${indicatorWidth}px`,
+        } as React.CSSProperties
+      }
+    >
+      <NavLink
+        to="/vacations"
+        className="nav-segmented__item"
+        ref={vacationsRef}
+      >
+        Vacations
+      </NavLink>
+
+      <NavLink
+        to="/admin/vacations/new"
+        className="nav-segmented__item"
+        ref={addRef}
+      >
+        Add Vacation
+      </NavLink>
+
+      <NavLink
+        to="/admin/reports"
+        className="nav-segmented__item"
+        ref={reportsRef}
+      >
+        Reports
+      </NavLink>
+
+      <div className="nav-segmented__indicator" />
+    </div>
+  );
+};
+
+/* header + content area */
+const MainLayout: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate("/login");
+  }
+
+  const isAdmin = user?.isAdmin === true;
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <div className="app-header__left">
+          <h1>VACATIONLAND</h1>
+        </div>
+
+        {/* decorative planes in background */}
+        <div className="home-plane">
+          <span className="home-plane__icon">✈</span>
+          <span className="home-plane__cloud" />
+        </div>
+
+        <nav className="app-header__nav">
+          {user && (
+            <>
+              {isAdmin && <AdminTabs />}
+
+              <span className="app-header__user">
+                Hello {user.firstName} {user.lastName}
+                {isAdmin && " (manager)"}
+              </span>
+
+              <Button variant="danger" onClick={handleLogout}>
+                Logout
+              </Button>
+            </>
+          )}
+        </nav>
+
+      </header>
+
+      <main className="app-main">
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
+const Home: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Auth pages – rendered without MainLayout */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+
+        {/* Main layout for the rest of the app */}
+        <Route element={<MainLayout />}>
+          {/* Home – redirect based on authentication status */}
+          <Route path="/" element={<HomeRedirect />} />
+
+          {/* Vacations page – requires authentication */}
+          <Route
+            path="/vacations"
+            element={
+              <RequireAuth>
+                <VacationsPage />
+              </RequireAuth>
+            }
+          />
+
+          {/* Add vacation – admin only */}
+          <Route
+            path="/admin/vacations/new"
+            element={
+              <RequireAdmin>
+                <AddVacationPage />
+              </RequireAdmin>
+            }
+          />
+
+          {/* Edit vacation – admin only */}
+          <Route
+            path="/admin/vacations/:id/edit"
+            element={
+              <RequireAdmin>
+                <EditVacationPage />
+              </RequireAdmin>
+            }
+          />
+
+          {/* Reports – admin only */}
+          <Route
+            path="/admin/reports"
+            element={
+              <RequireAdmin>
+                <ReportsPage />
+              </RequireAdmin>
+            }
+          />
+        </Route>
+
+        {/* Unknown paths */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
+export default Home;
+
+=== hooks\useAuth.ts ===
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return ctx;
+}
+
+=== hooks\useToast.ts ===
+import { useContext } from "react";
+import { ToastContext } from "../context/ToastContext";
+
+export function useToast() {
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
+    throw new Error("useToast must be used within a ToastProvider");
+  }
+  return ctx;
+}
+
+=== pages\Auth\AuthPage.css ===
+html,
+body,
+#root {
+  height: 100%;
+}
+
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap");
+
+.auth-layout {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: var(--bg-color);
+  font-family: "Nunito", sans-serif;
+  overflow: hidden;
+  perspective: 1000px;
+  padding: 1rem;
+}
+
+.Main-title {
+  position: absolute;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0;
+  font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #7b879b;
+  text-shadow:
+    -1px -1px 2px rgba(255, 255, 255, 0.9),
+    2px 2px 4px rgba(163, 177, 198, 0.75);
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Jelly-like card container */
+.auth-page {
+  position: relative;
+  width: min(90vw, 350px);
+  padding: 40px;
+  border-radius: 50px;
+  background: var(--jelly-color);
+  box-shadow:
+    20px 20px 60px var(--shadow-dark),
+    -20px -20px 60px var(--shadow-light),
+    inset 0 0 0 transparent,
+    inset 0 0 0 transparent;
+  z-index: 99;
+  transition: all 0.3s ease;
+  animation: morph-form 10s ease-in-out infinite;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Form title */
+.auth-page__header h1 {
+  text-align: center;
+  color: var(--text-color);
+  margin-bottom: 30px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  opacity: 0.8;
+  font-size: 1.6rem;
+  pointer-events: none;
+}
+
+.auth-form {
+  margin-top: 0;
+}
+
+.auth-form>*+* {
+  margin-top: 0.9rem;
+}
+
+/* Input fields inside the form */
+.auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+  width: 100%;
+  padding: 15px 20px;
+  border: none;
+  outline: none;
+  background: transparent;
+  border-radius: 25px;
+  color: var(--text-color);
+  font-size: 16px;
+  box-shadow:
+    inset 5px 5px 10px var(--shadow-dark),
+    inset -5px -5px 10px var(--shadow-light);
+  transition: all 0.3s ease;
+}
+
+.auth-form input[type="text"]:focus,
+.auth-form input[type="email"]:focus,
+.auth-form input[type="password"]:focus {
+  box-shadow:
+    inset 2px 2px 5px var(--shadow-dark),
+    inset -2px -2px 5px var(--shadow-light);
+}
+
+.auth-form__error {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+/* Submit button */
+.auth-form button[type="submit"] {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  outline: none;
+  border-radius: 25px;
+  background: var(--jelly-color);
+  color: var(--text-color);
+  font-weight: bold;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow:
+    8px 8px 16px var(--shadow-dark),
+    -8px -8px 16px var(--shadow-light);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-form button[type="submit"].btn.btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: #d4d6e06a;
+  transform: none;
+  box-shadow:
+    8px 8px 16px var(--shadow-dark),
+    -8px -8px 16px var(--shadow-light);
+}
+
+.auth-form button[type="submit"].btn.btn--primary:active:not(:disabled):not([aria-disabled="true"]) {
+  box-shadow:
+    inset 5px 5px 10px var(--shadow-dark),
+    inset -5px -5px 10px var(--shadow-light);
+  transform: scale(0.98);
+}
+
+.auth-form button[type="submit"].btn.btn--primary:focus:not(:disabled):not([aria-disabled="true"]),
+.auth-form button[type="submit"].btn.btn--primary:focus-visible:not(:disabled):not([aria-disabled="true"]) {
+  transform: none;
+}
+
+.auth-page__footer {
+  margin-top: 0.9rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.auth-page__footer span {
+  pointer-events: none;
+}
+
+.auth-page__footer a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-page__footer a:hover {
+  text-decoration: underline;
+}
+
+/* Planes + cloud beneath the plane */
+.auth-plane {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  opacity: 0.95;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%,
+      rgba(255, 255, 255, 0.95),
+      rgba(253, 243, 227, 0.25));
+  box-shadow:
+    10px 10px 26px rgba(163, 177, 198, 0.9),
+    -8px -8px 20px rgba(255, 255, 255, 0.9);
+}
+
+/* Plane icon */
+.auth-plane__icon {
+  font-size: 2.6rem;
+  color: var(--color-cream);
+  text-shadow:
+    0 6px 14px rgba(163, 177, 198, 0.85),
+    -1px -1px 2px rgba(255, 255, 255, 0.95);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+/* Cloud under the plane */
+.auth-plane__cloud {
+  position: absolute;
+  top: 72%;
+  left: 50%;
+  width: 58px;
+  height: 24px;
+  background: linear-gradient(to bottom, #ffffff, #f6eee0);
+  border-radius: 999px;
+  box-shadow:
+    0 6px 12px rgba(163, 177, 198, 0.55),
+    -2px -2px 4px rgba(255, 255, 255, 0.95);
+  transform: translateX(-50%);
+}
+
+/* Small cloud bumps */
+.auth-plane__cloud::before,
+.auth-plane__cloud::after {
+  content: "";
+  position: absolute;
+  background: inherit;
+  border-radius: inherit;
+}
+
+.auth-plane__cloud::before {
+  width: 28px;
+  height: 20px;
+  top: -10px;
+  left: 6px;
+}
+
+.auth-plane__cloud::after {
+  width: 22px;
+  height: 16px;
+  top: -8px;
+  right: 4px;
+}
+
+/* Left plane position */
+.auth-plane--left {
+  left: 11%;
+  top: 22%;
+  animation: plane-left-float 7s ease-in-out infinite;
+}
+
+/* Right plane position */
+.auth-plane--right {
+  right: 12%;
+  bottom: 18%;
+  animation: plane-right-float 8s ease-in-out infinite;
+}
+
+.auth-plane--right .auth-plane__icon {
+  transform: scaleX(-1);
+}
+
+/* Each plane's cloud moves slightly differently from its plane */
+.auth-plane--left .auth-plane__cloud {
+  animation: cloud-left-float 6s ease-in-out infinite;
+}
+
+.auth-plane--right .auth-plane__cloud {
+  animation: cloud-right-float 6.5s ease-in-out infinite;
+}
+
+/* Left plane animation */
+@keyframes plane-left-float {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+
+  25% {
+    transform: translate3d(10px, -16px, 0) rotate(-4deg);
+  }
+
+  50% {
+    transform: translate3d(2px, -28px, 0) rotate(2deg);
+  }
+
+  75% {
+    transform: translate3d(-6px, -14px, 0) rotate(-2deg);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-10deg);
+  }
+}
+
+/* Right plane animation */
+@keyframes plane-right-float {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(8deg);
+  }
+
+  20% {
+    transform: translate3d(-10px, -12px, 0) rotate(2deg);
+  }
+
+  50% {
+    transform: translate3d(-4px, -26px, 0) rotate(-2deg);
+  }
+
+  80% {
+    transform: translate3d(6px, -14px, 0) rotate(4deg);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(8deg);
+  }
+}
+
+/* Left cloud moves down and expands */
+@keyframes cloud-left-float {
+  0% {
+    transform: translate(-50%, 0) scale(0.96);
+  }
+
+  40% {
+    transform: translate(-52%, 6px) scale(1.04);
+  }
+
+  70% {
+    transform: translate(-48%, 10px) scale(1.02);
+  }
+
+  100% {
+    transform: translate(-50%, 0) scale(0.96);
+  }
+}
+
+/* Right cloud moves with slightly different timing */
+@keyframes cloud-right-float {
+  0% {
+    transform: translate(-50%, 2px) scale(0.98);
+  }
+
+  35% {
+    transform: translate(-49%, 10px) scale(1.05);
+  }
+
+  80% {
+    transform: translate(-51%, 14px) scale(1.01);
+  }
+
+  100% {
+    transform: translate(-50%, 2px) scale(0.98);
+  }
+}
+
+/* Adjustments for small screens */
+@media (max-width: 480px) {
+  .auth-plane {
+    width: 64px;
+    height: 64px;
+  }
+
+  .auth-plane__icon {
+    font-size: 2.2rem;
+  }
+
+  .auth-plane__cloud {
+    width: 48px;
+    height: 20px;
+  }
+
+  .auth-plane--left {
+    left: 6%;
+    top: 24%;
+  }
+
+  .auth-plane--right {
+    right: 7%;
+    bottom: 20%;
+  }
+
+  .auth-page {
+    padding: 28px;
+  }
+
+  .auth-page__header h1 {
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+  }
+
+  .Main-title {
+    top: 20px;
+    font-size: 1.6rem;
+    letter-spacing: 0.12em;
+  }
+}
+
+=== pages\Auth\LoginPage.tsx ===
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import ErrorMessage from "../../Components/common/ErrorMessage/ErrorMessage";
+import Button from "../../Components/common/Button/Button";
+import Input from "../../Components/common/Input/Input";
+import "./AuthPage.css";
+import PasswordInput from "../../Components/common/PasswordInput/PasswordInput";
+
+const LoginPage: React.FC = () => {
+  const { login, authError, isLoading, user } = useAuth();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // If the user is already logged in, redirect from the login page
+  useEffect(() => {
+    if (user) {
+      navigate("/vacations");
+    }
+  }, [user, navigate]);
+
+  function validateForm(): boolean {
+    if (!email || !password) {
+      setFormError("Please provide email and password");
+      return false;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFormError("Invalid email address");
+      return false;
+    }
+
+    if (password.length < 5) {
+      setFormError("Password must be at least 5 characters long");
+      return false;
+    }
+
+    setFormError(null);
+    return true;
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    try {
+      await login({ email, password });
+    } catch {
+    }
+  }
+
+  return (
+    <div className="auth-layout auth-layout--login">
+      <h1 className="Main-title">VACATIONLAND</h1>
+
+      {/* decorative planes in background */}
+      <div className="auth-plane auth-plane--left">
+        <span className="auth-plane__icon">✈</span>
+        <span className="auth-plane__cloud" />
+      </div>
+
+      <div className="auth-plane auth-plane--right">
+        <span className="auth-plane__icon">✈</span>
+        <span className="auth-plane__cloud" />
+      </div>
+
+      <div className="auth-page auth-page--login">
+        <div className="auth-page__header">
+          <h1>Login</h1>
+        </div>
+
+        <form className="auth-form" onSubmit={handleSubmit}>
+          {/* email field */}
+          <Input
+            id="email"
+            placeholder="Email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
+          />
+
+          {/* password field */}
+          <PasswordInput
+            id="password"
+            placeholder="Password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
+          />
+
+          {/* local validation error */}
+          {formError && (
+            <ErrorMessage
+              message={formError}
+              className="auth-form__error"
+            />
+          )}
+
+          {/* server-side error from AuthContext */}
+          {authError && !formError && (
+            <ErrorMessage
+              message={authError}
+              className="auth-form__error"
+            />
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            className="auth-form__submit"
+            disabled={isLoading}
+            fullWidth
+          >
+            {isLoading ? "Signing in..." : "Sign in"}
+          </Button>
+        </form>
+
+        <div className="auth-page__footer">
+          <span>Don't have an account yet?</span>{" "}
+          <Link to="/register">Register</Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LoginPage;
+
+=== pages\Auth\RegisterPage.tsx ===
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import ErrorMessage from "../../Components/common/ErrorMessage/ErrorMessage";
+import Button from "../../Components/common/Button/Button";
+import "./AuthPage.css";
+import Input from "../../Components/common/Input/Input";
+import PasswordInput from "../../Components/common/PasswordInput/PasswordInput";
+
+const RegisterPage: React.FC = () => {
+  const { register, authError, isLoading, user } = useAuth();
+  const navigate = useNavigate();
+
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      navigate("/vacations");
+    }
+  }, [user, navigate]);
+
+  function validateForm(): boolean {
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
+      setFormError("Please fill in all fields");
+      return false;
+    }
+
+    if (firstName.trim().length < 2) {
+      setFormError("First name must be at least 2 characters long");
+      return false;
+    }
+
+    if (lastName.trim().length < 2) {
+      setFormError("Last name must be at least 2 characters long");
+      return false;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFormError("Invalid email address");
+      return false;
+    }
+
+    if (password.length < 5) {
+      setFormError("Password must be at least 5 characters long");
+      return false;
+    }
+
+    setFormError(null);
+    return true;
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    try {
+      await register({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        password,
+      });
+      // Navigation to /vacations will occur via useEffect when `user` updates
+    } catch {
+      // Server error is already available in `authError`
+    }
+  }
+
+  return (
+    <div className="auth-layout auth-layout--register">
+      <h1 className="Main-title">VACATIONLAND</h1>
+
+      {/* decorative planes in background */}
+      <div className="auth-plane auth-plane--left">
+        <span className="auth-plane__icon">✈</span>
+        <span className="auth-plane__cloud" />
+      </div>
+
+      <div className="auth-plane auth-plane--right">
+        <span className="auth-plane__icon">✈</span>
+        <span className="auth-plane__cloud" />
+      </div>
+
+      <div className="auth-page auth-page--register">
+        <div className="auth-page__header">
+          <h1>Register</h1>
+        </div>
+
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <Input
+            id="firstName"
+            placeholder="First name"
+            type="text"
+            autoComplete="given-name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            disabled={isLoading}
+          />
+
+          <Input
+            id="lastName"
+            placeholder="Last name"
+            type="text"
+            autoComplete="family-name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            disabled={isLoading}
+          />
+
+          <Input
+            id="email"
+            placeholder="Email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
+          />
+
+          <PasswordInput
+            id="password"
+            placeholder="Password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
+          />
+
+          {formError && (
+            <ErrorMessage
+              message={formError}
+              className="auth-form__error"
+            />
+          )}
+
+          {authError && !formError && (
+            <ErrorMessage
+              message={authError}
+              className="auth-form__error"
+            />
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            className="auth-form__submit"
+            disabled={isLoading}
+            fullWidth
+          >
+            {isLoading ? "Signing up..." : "Register"}
+          </Button>
+        </form>
+
+        <div className="auth-page__footer">
+          <span>Already have an account?</span>{" "}
+          <Link to="/login">Sign in</Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RegisterPage;
+
+=== pages\Vacations\ReportsPage\ReportsPage.css ===
+.reports-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.reports-title {
+  margin: 0;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.reports-page__error {
+  margin-top: 0.5rem;
+}
+
+.reports-page__chart,
+.reports-page__table {
+  background: transparent;
+  padding: 1rem 1.2rem;
+  border-radius: 0.9rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.reports-page__chart h2,
+.reports-page__table h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.reports-page__actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 0.75rem;
+}
+
+/* reports table */
+.reports-page__table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.reports-page__table th,
+.reports-page__table td {
+  border-bottom: 2px solid #d7d7d7;
+  padding: 0.45rem 0.35rem;
+  text-align: center;
+}
+
+.reports-page__table th {
+  background-color: #dfe4f4;
+  font-weight: 600;
+}
+
+=== pages\Vacations\ReportsPage\ReportsPage.tsx ===
+import "./ReportsPage.css";
+import React, { useEffect, useState } from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
+import type { VacationReportItem } from "../../../types/models";
+import { downloadVacationsCsv, getVacationsReport } from "../../../api/vacationsApi";
+import Button from "../../../Components/common/Button/Button";
+
+const ReportsPage: React.FC = () => {
+  const [data, setData] = useState<VacationReportItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<boolean>(false);
+
+  async function loadReport() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await getVacationsReport();
+      setData(result);
+    } catch (err: any) {
+      console.error("Failed to load report:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "An error occurred while loading the report";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadReport();
+  }, []);
+
+  async function handleDownloadCsv() {
+    setDownloading(true);
+    setError(null);
+
+    try {
+      await downloadVacationsCsv();
+    } catch (err: any) {
+      console.error("Failed to download CSV:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "An error occurred while downloading the CSV file";
+      setError(msg);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div className="reports-page">
+      <h1 className="reports-title">Vacation & Followers Report</h1>
+
+      {loading && <div>Loading report...</div>}
+
+      {error && (
+        <div className="reports-page__error">
+          Error: {error}
+        </div>
+      )}
+
+      {!loading && !error && data.length === 0 && (
+        <div>No data to display.</div>
+      )}
+
+      {!loading && !error && data.length > 0 && (
+        <>
+
+          {/* CSV download button */}
+          <section className="reports-page__actions">
+            <Button
+              variant="primary"
+              onClick={handleDownloadCsv}
+              disabled={downloading}
+            >
+              {downloading ? "Downloading file..." : "Download CSV Report ⬇"}
+            </Button>
+          </section>
+
+          {/* Bar chart */}
+          <section className="reports-page__chart">
+            <h2>Vacations by Followers Count</h2>
+            <div style={{ width: "100%", height: 350 }}>
+              <ResponsiveContainer>
+                <BarChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="destination" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="followersCount" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          {/* Data table */}
+          <section className="reports-page__table">
+            <h2>Data Table</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Destination</th>
+                  <th>Followers Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((item) => (
+                  <tr key={item.destination}>
+                    <td>{item.destination}</td>
+                    <td>{item.followersCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+        </>
+      )}
+    </div>
+  );
+};
+
+export default ReportsPage;
+
+=== pages\Vacations\VacationForm\AddVacationPage.tsx ===
+import "./VacationForm.css";
+import React, { useState, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { createVacation } from "../../../api/vacationsApi";
+import Button from "../../../Components/common/Button/Button";
+import { useToast } from "../../../hooks/useToast";
+
+const AddVacationPage: React.FC = () => {
+    const navigate = useNavigate();
+    const toast = useToast();
+
+    const [destination, setDestination] = useState<string>("");
+    const [description, setDescription] = useState<string>("");
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
+    const [price, setPrice] = useState<string>("");
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // To prevent selecting past dates
+    const todayStr = useMemo(() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return d.toISOString().split("T")[0];
+    }, []);
+
+    function validateForm(): boolean {
+        if (!destination.trim() || !description.trim() || !startDate || !endDate || !price) {
+            setFormError("Please fill out all fields");
+            return false;
+        }
+
+        const numericPrice = Number(price);
+        if (isNaN(numericPrice)) {
+            setFormError("Price must be a number");
+            return false;
+        }
+
+        if (numericPrice <= 0 || numericPrice > 10000) {
+            setFormError("Price must be greater than 0 and not exceed 10,000");
+            return false;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (end < start) {
+            setFormError("End date cannot be before start date");
+            return false;
+        }
+
+        if (start < today || end < today) {
+            setFormError("Cannot select past dates for a new vacation");
+            return false;
+        }
+
+        if (!imageFile) {
+            setFormError("You must select an image file for the vacation");
+            return false;
+        }
+
+        setFormError(null);
+        return true;
+    }
+
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setSubmitError(null);
+
+        if (!validateForm()) return;
+
+        setIsSubmitting(true);
+
+        const dest = destination.trim();
+
+        try {
+            await createVacation({
+                destination: dest,
+                description: description.trim(),
+                startDate: new Date(startDate).toISOString(),
+                endDate: new Date(endDate).toISOString(),
+                price: Number(price),
+                imageFile,
+            });
+
+            navigate("/vacations", {
+                replace: true,
+                state: {
+                    toast: {
+                        variant: "success",
+                        title: "Vacation created",
+                        message: `Vacation "${destination.trim()}" was added successfully.`,
+                        durationMs: 2800,
+                    },
+                    toastNonce: crypto.randomUUID(),
+                },
+            });
+        } catch (error: any) {
+            console.error("Create vacation error:", error);
+            const msg =
+                error?.response?.data?.message ||
+                error?.message ||
+                "An error occurred while saving the vacation";
+
+            setSubmitError(msg);
+
+            toast.error(msg, "Addition failed");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0] ?? null;
+        setImageFile(file);
+    }
+
+    function handleCancel() {
+        navigate("/vacations");
+    }
+
+    return (
+        <div className="vacation-form-page">
+            <h1>Add New Vacation</h1>
+
+            <form className="vacation-form" onSubmit={handleSubmit}>
+                {/* Destination */}
+                <div className="vacation-form__field">
+                    <label htmlFor="destination">Destination</label>
+                    <input
+                        id="destination"
+                        type="text"
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value)}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Description */}
+                <div className="vacation-form__field">
+                    <label htmlFor="description">Description</label>
+                    <textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Start Date */}
+                <div className="vacation-form__field">
+                    <label htmlFor="startDate">Start Date</label>
+                    <input
+                        id="startDate"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        min={todayStr}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* End Date */}
+                <div className="vacation-form__field">
+                    <label htmlFor="endDate">End Date</label>
+                    <input
+                        id="endDate"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        min={todayStr}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Price */}
+                <div className="vacation-form__field">
+                    <label htmlFor="price">Price</label>
+                    <input
+                        id="price"
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        min={0}
+                        max={10000}
+                        step={1}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Image */}
+                <div className="vacation-form__field vacation-form__field--file">
+                    <label htmlFor="image">Vacation Image</label>
+
+                    <div
+                        className={
+                            "vacation-form__file-wrapper" +
+                            (isSubmitting ? " vacation-form__file-wrapper--disabled" : "")
+                        }
+                    >
+                        {/* File input is visually hidden but accessible */}
+                        <input
+                            ref={fileInputRef}
+                            id="image"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            disabled={isSubmitting}
+                            className="vacation-form__file-input"
+                        />
+
+                        <Button
+                            type="button"
+                            variant="primary"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isSubmitting}
+                            className="vacation-form__file-button"
+                        >
+                            <span>{imageFile ? "Choose a new image" : "Choose image"}</span>
+                        </Button>
+                    </div>
+                    <span className="vacation-form__file-name">
+                        {imageFile ? imageFile.name : "No file selected"}
+                    </span>
+                </div>
+
+                {/* Client-side validation errors */}
+                {formError && (
+                    <div className="vacation-form__error">
+                        {formError}
+                    </div>
+                )}
+
+                {/* Server error */}
+                {submitError && !formError && (
+                    <div className="vacation-form__error">
+                        {submitError}
+                    </div>
+                )}
+
+                <div className="vacation-form__actions">
+                    <Button type="submit" variant="primary" disabled={isSubmitting}>
+                        {isSubmitting ? "Saving..." : "Save Vacation"}
+                    </Button>
+
+                    <Button type="button" variant="secondary" onClick={handleCancel} disabled={isSubmitting}>
+                        Cancel
+                    </Button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+export default AddVacationPage;
+
+=== pages\Vacations\VacationForm\EditVacationPage.tsx ===
+import "./VacationForm.css";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import type { Vacation } from "../../../types/models";
+import { getVacationById, updateVacation } from "../../../api/vacationsApi";
+import { appConfig } from "../../../config/appConfig";
+import Button from "../../../Components/common/Button/Button";
+import { useToast } from "../../../hooks/useToast";
+
+const EditVacationPage: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const toast = useToast();
+
+    const [vacation, setVacation] = useState<Vacation | null>(null);
+
+    const [destination, setDestination] = useState<string>("");
+    const [description, setDescription] = useState<string>("");
+    const [startDate, setStartDate] = useState<string>("");
+    const [endDate, setEndDate] = useState<string>("");
+    const [price, setPrice] = useState<string>("");
+
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [currentImageName, setCurrentImageName] = useState<string>("");
+
+    const [formError, setFormError] = useState<string | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+    // Load vacation for editing
+    useEffect(() => {
+        if (!id) return;
+
+        const load = async () => {
+            setIsLoading(true);
+            setSubmitError(null);
+            try {
+                const vac = await getVacationById(Number(id));
+                setVacation(vac);
+
+                setDestination(vac.destination);
+                setDescription(vac.description);
+
+                // Convert ISO to YYYY-MM-DD for input[type=date]
+                setStartDate(vac.startDate.slice(0, 10));
+                setEndDate(vac.endDate.slice(0, 10));
+
+                setPrice(vac.price.toString());
+                setCurrentImageName(vac.image);
+            } catch (error: any) {
+                console.error("Failed to load vacation:", error);
+                const msg =
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    "An error occurred while loading the vacation";
+                setSubmitError(msg);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        load();
+    }, [id]);
+
+    function validateForm(): boolean {
+        if (!destination.trim() || !description.trim() || !startDate || !endDate || !price) {
+            setFormError("Please fill out all fields");
+            return false;
+        }
+
+        const numericPrice = Number(price);
+        if (isNaN(numericPrice)) {
+            setFormError("Price must be a number");
+            return false;
+        }
+
+        if (numericPrice <= 0 || numericPrice > 10000) {
+            setFormError("Price must be greater than 0 and not exceed 10,000");
+            return false;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (end < start) {
+            setFormError("End date cannot be before start date");
+            return false;
+        }
+
+        setFormError(null);
+        return true;
+    }
+
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setSubmitError(null);
+
+        if (!id) {
+            setSubmitError("Invalid vacation for editing");
+            return;
+        }
+
+        if (!validateForm()) return;
+
+        setIsSubmitting(true);
+
+        const dest = destination.trim();
+
+        try {
+            await updateVacation(Number(id), {
+                destination: dest,
+                description: description.trim(),
+                startDate: new Date(startDate).toISOString(),
+                endDate: new Date(endDate).toISOString(),
+                price: Number(price),
+                imageFile,
+            });
+
+            navigate("/vacations", {
+                replace: true,
+                state: {
+                    toast: {
+                        variant: "success",
+                        title: "Vacation updated",
+                        message: `Vacation "${destination.trim()}" was updated successfully.`,
+                        durationMs: 2800,
+                    },
+                    toastNonce: crypto.randomUUID(),
+                },
+            });
+        } catch (error: any) {
+            console.error("Update vacation error:", error);
+            const msg =
+                error?.response?.data?.message ||
+                error?.message ||
+                "An error occurred while saving changes";
+
+            setSubmitError(msg);
+
+            toast.error(msg, "Update failed");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0] ?? null;
+        setImageFile(file);
+    }
+
+    function handleCancel() {
+        navigate("/vacations");
+    }
+
+    const currentImageUrl =
+        currentImageName && !currentImageName.startsWith("http")
+            ? `${appConfig.imagesBaseUrl}/${currentImageName}`
+            : currentImageName;
+
+    if (isLoading) {
+        return <div>Loading vacation for editing...</div>;
+    }
+
+    if (!vacation && submitError) {
+        return (
+            <div>
+                <h2>Error loading vacation</h2>
+                <p>{submitError}</p>
+            </div>
+        );
+    }
+
+    if (!vacation) {
+        return <div>Vacation not found.</div>;
+    }
+
+    return (
+        <div className="vacation-form-page">
+            <h1>Edit Vacation</h1>
+
+            <form className="vacation-form" onSubmit={handleSubmit}>
+                {/* Destination */}
+                <div className="vacation-form__field">
+                    <label htmlFor="destination">Destination</label>
+                    <input
+                        id="destination"
+                        type="text"
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value)}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Description */}
+                <div className="vacation-form__field">
+                    <label htmlFor="description">Description</label>
+                    <textarea
+                        id="description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Start Date */}
+                <div className="vacation-form__field">
+                    <label htmlFor="startDate">Start Date</label>
+                    <input
+                        id="startDate"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* End Date */}
+                <div className="vacation-form__field">
+                    <label htmlFor="endDate">End Date</label>
+                    <input
+                        id="endDate"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Price */}
+                <div className="vacation-form__field">
+                    <label htmlFor="price">Price</label>
+                    <input
+                        id="price"
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        min={0}
+                        max={10000}
+                        step={1}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Current image + optional change */}
+                <div className="vacation-form__field">
+                    <label>Current Image</label>
+                    {currentImageUrl ? (
+                        <div className="vacation-form__image-preview">
+                            <img
+                                src={currentImageUrl}
+                                alt={destination}
+                                style={{ maxWidth: "200px" }}
+                            />
+                        </div>
+                    ) : (
+                        <div>No image</div>
+                    )}
+                </div>
+
+                <div className="vacation-form__field vacation-form__field--file">
+                    <label htmlFor="image">Change Image (optional)</label>
+
+                    <div
+                        className={
+                            "vacation-form__file-wrapper" +
+                            (isSubmitting ? " vacation-form__file-wrapper--disabled" : "")
+                        }
+                    >
+                        <input
+                            id="image"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            disabled={isSubmitting}
+                            className="vacation-form__file-input"
+                        />
+
+                        <label
+                            htmlFor="image"
+                            className="vacation-form_button vacation-form_button--primary vacation-form__file-button"
+                        >
+                            {imageFile ? "Choose a new image" : "Choose image"}
+                        </label>
+
+                    </div>
+                    <span className="vacation-form__file-name">
+                        {imageFile ? imageFile.name : "No file selected"}
+                    </span>
+                </div>
+
+
+
+                {/* Client-side validation errors */}
+                {formError && (
+                    <div className="vacation-form__error">
+                        {formError}
+                    </div>
+                )}
+
+                {/* Server error */}
+                {submitError && !formError && (
+                    <div className="vacation-form__error">
+                        {submitError}
+                    </div>
+                )}
+
+                <div className="vacation-form__actions">
+                    <Button type="submit" variant="primary" disabled={isSubmitting}>
+                        {isSubmitting ? "Saving..." : "Save Vacation"}
+                    </Button>
+
+                    <Button type="button" variant="secondary" onClick={handleCancel} disabled={isSubmitting}>
+                        Cancel
+                    </Button>
+                </div>
+
+            </form >
+        </div >
+    );
+};
+
+export default EditVacationPage;
+
+=== pages\Vacations\VacationForm\VacationForm.css ===
+.vacation-form-page {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.vacation-form-page h1 {
+  margin-bottom: 2rem;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.vacation-form {
+  background-color: transparent;
+  padding: 1.3rem 1.5rem;
+  border-radius: 0.9rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.vacation-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+}
+
+.vacation-form__field label {
+  font-size: 0.9rem;
+  font-weight: bold;
+  z-index: 1;
+}
+
+.vacation-form__field input[type="text"],
+.vacation-form__field input[type="date"],
+.vacation-form__field input[type="number"],
+.vacation-form__field textarea {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+background: #dfe4f4;
+}
+
+.vacation-form__field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.vacation-form__image-preview img {
+  max-width: 200px;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.vacation-form__error {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  display: inline-block;
+  color: #b91c1c;
+  background-color: #fee2e2;
+  font-size: 0.9rem;
+}
+
+/* Action buttons area at the bottom of the form */
+
+.vacation-form__actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.vacation-form_button,
+.vacation-form__submit,
+.vacation-form__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.vacation-form_button,
+.vacation-form__submit,
+.vacation-form__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.vacation-form_button--primary,
+.vacation-form__submit {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+
+}
+
+.vacation-form_button--primary,
+.vacation-form__submit {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+
+}
+
+.vacation-form_button--primary:hover:not(:disabled),
+.vacation-form__submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.45);
+}
+
+.vacation-form_button--secondary,
+.vacation-form__cancel {
+  background: linear-gradient(135deg, #778099, #66748a);
+  box-shadow: 0 4px 10px rgba(122, 137, 168, 0.35);
+}
+
+/* Secondary variant — "Cancel" */
+
+.vacation-form_button--secondary,
+.vacation-form__cancel {
+  background: linear-gradient(135deg, #778099, #66748a);
+  box-shadow: 0 4px 10px rgba(122, 137, 168, 0.35);
+}
+
+.vacation-form_button--secondary:hover:not(:disabled),
+.vacation-form__cancel:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6e768e, #5b687c);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(122, 137, 168, 0.45);
+}
+
+/* Disabled state */
+.vacation-form_button:disabled,
+.vacation-form__submit:disabled,
+.vacation-form__cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* Accessibility focus */
+.vacation-form_button:focus-visible,
+.vacation-form__submit:focus-visible,
+.vacation-form__cancel:focus-visible {
+  outline: 2px solid #bfdbfe;
+  outline-offset: 2px;
+}
+
+.vacation-form__field--file {
+  align-items: flex-start;
+}
+
+.vacation-form__file-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Disabled state while saving */
+.vacation-form__file-wrapper--disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.vacation-form__file-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.vacation-form__file-button {
+  background: linear-gradient(135deg, #3661d7, #5090f7);
+}
+
+.vacation-form__file-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #324fae, #3c74ec);
+}
+
+.vacation-form__file-name {
+  font-size: 0.80rem;
+  color: #6b7280;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 21px;
+  margin-top: 2px;
+}
+
+.vacation-form-page,
+.vacation-form,
+.vacation-form__field label,
+.vacation-form__field input[type="text"],
+.vacation-form__field input[type="date"],
+.vacation-form__field input[type="number"],
+.vacation-form__field textarea,
+.vacation-form_button,
+.vacation-form__submit,
+.vacation-form__cancel,
+.vacation-form__file-name {
+  font-family: var(--font-sans);
+}
+
+=== pages\Vacations\VacationsPage\VacationsPage.css ===
+.vacations-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.vacations-page__header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.vacations-page__header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.vacations-page__header p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.vacations-page__filters {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.9rem;
+  padding-top: 0.25rem;
+}
+
+.vacations-page__filters::before {
+  content: "";
+  position: absolute;
+  top: 0.15rem;
+  right: 0;
+  width: min(100%, 460px);
+  height: 0;
+  border-radius: 999px;
+  background: radial-gradient(circle at top left,
+      rgba(255, 255, 255, 0.96),
+      rgba(148, 163, 184, 0.28));
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.32),
+    0 0 0 1px rgba(148, 163, 184, 0.26);
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+  transform-origin: right center;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    height 0.25s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.vacations-filter-select {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  padding: 0.15rem 0.55rem;
+}
+
+.vacations-filter-select__control {
+  min-width: 220px;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: transparent;
+  color: #0f172a;
+  outline: none;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  direction: ltr;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.vacations-page__filters:focus-within .vacations-filter-select__control {
+  background: var(--bg-color);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.24);
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+/* Accessibility focus on the select */
+.vacations-filter-select__control:focus-visible {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+/* Filter icon — slight emphasis during open */
+.vacations-filter-select__icon {
+  width: 18px;
+  margin-inline-start: 4px;
+  vertical-align: middle;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.45));
+  transition:
+    transform 0.25s ease,
+    opacity 0.18s ease;
+}
+
+.vacations-page__filters:focus-within .vacations-filter-select__icon {
+  transform: rotate(12deg) scale(1.05);
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .vacations-page__filters {
+    justify-content: center;
+  }
+
+  .vacations-page__filters::before {
+    width: 100%;
+  }
+}
+
+=== pages\Vacations\VacationsPage\VacationsPage.tsx ===
+import "./VacationsPage.css";
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../../hooks/useAuth";
+import {
+  getVacations,
+  followVacation,
+  unfollowVacation,
+  deleteVacation,
+} from "../../../api/vacationsApi";
+import {
+  type PaginatedVacationsResponse,
+  type Vacation,
+  type VacationsFilter,
+} from "../../../types/models";
+import VacationsList from "../../../Components/vacations/VacationsList/VacationsList";
+import filterIcon from "../../../assets/filter.png";
+import Pagination from "../../../Components/common/Pagination/Pagination";
+import ConfirmDialog from "../../../Components/common/ConfirmDialog/ConfirmDialog";
+import { useToast } from "../../../hooks/useToast";
+
+const PAGE_SIZE = 6;
+
+const VacationsPage: React.FC = () => {
+  const { user, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const location = useLocation();
+
+  const [vacations, setVacations] = useState<Vacation[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
+
+  const [page, setPage] = useState<number>(1);
+  const [filter, setFilter] = useState<VacationsFilter>("all");
+
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const consumedToastNonceRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const state = location.state as any;
+    const flash = state?.toast;
+    const nonce = state?.toastNonce;
+
+    if (!flash || !nonce) return;
+    if (consumedToastNonceRef.current === nonce) return;
+    consumedToastNonceRef.current = nonce;
+
+    toast.push({
+      variant: flash.variant,
+      title: flash.title,
+      message: flash.message,
+      durationMs: flash.durationMs,
+    });
+
+    // Clears state so it doesn't show again.
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.key, location.pathname, location.state, navigate, toast]);
+
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    vacationId: number | null;
+    destination?: string;
+  }>({ open: false, vacationId: null });
+
+  const [deleteBusy, setDeleteBusy] = useState<boolean>(false);
+
+
+  const totalPages =
+    totalCount > 0 ? Math.ceil(totalCount / PAGE_SIZE) : 1;
+
+  const isAdmin = user?.isAdmin === true;
+  const handleFilterChange = (newFilter: VacationsFilter) => {
+    if (isAdmin && newFilter === "following") {
+      newFilter = "all";
+    }
+
+    setFilter(newFilter);
+    setPage(1);
+  };
+
+  async function loadVacations() {
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res: PaginatedVacationsResponse = await getVacations({
+        page,
+        pageSize: PAGE_SIZE,
+        filter,
+      });
+
+      setVacations(res.vacations);
+      setTotalCount(res.totalCount);
+    } catch (err: any) {
+      console.error("Failed to load vacations:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to load vacations";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!user) return;
+    loadVacations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, page, filter]);
+
+  const handleSelectChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    handleFilterChange(e.target.value as VacationsFilter);
+  };
+
+  const handleFollow = async (vacationId: number) => {
+    // Optimistic update of the item in the list
+    setVacations((prev) =>
+      prev.map((v) =>
+        v.id === vacationId
+          ? {
+            ...v,
+            isFollowedByCurrentUser: true,
+            followersCount: v.followersCount + 1,
+          }
+
+          : v
+      )
+    );
+
+    try {
+      await followVacation(vacationId);
+    } catch (err: any) {
+      console.error("Follow error:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to follow vacation";
+      setError(msg);
+
+      // Revert to previous state on error
+      setVacations((prev) =>
+        prev.map((v) =>
+          v.id === vacationId
+            ? {
+              ...v,
+              isFollowedByCurrentUser: false,
+              followersCount: Math.max(0, v.followersCount - 1),
+            }
+            : v
+        )
+      );
+    }
+  };
+
+  const handleUnfollow = async (vacationId: number) => {
+    // Optimistic update
+    setVacations((prev) =>
+      prev.map((v) =>
+        v.id === vacationId
+          ? {
+            ...v,
+            isFollowedByCurrentUser: false,
+            followersCount: Math.max(0, v.followersCount - 1),
+          }
+          : v
+      )
+    );
+
+    try {
+      await unfollowVacation(vacationId);
+    } catch (err: any) {
+      console.error("Unfollow error:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to unfollow vacation";
+      setError(msg);
+
+      // Revert to previous state on error
+      setVacations((prev) =>
+        prev.map((v) =>
+          v.id === vacationId
+            ? {
+              ...v,
+              isFollowedByCurrentUser: true,
+              followersCount: v.followersCount + 1,
+            }
+            : v
+        )
+      );
+    }
+  };
+
+
+  const handleEdit = (vacationId: number) => {
+    navigate(`/admin/vacations/${vacationId}/edit`);
+  };
+
+  const handleDelete = (vacationId: number) => {
+    const dest = vacations.find((v) => v.id === vacationId)?.destination;
+    setConfirmState({ open: true, vacationId, destination: dest });
+  };
+
+  const performDelete = async () => {
+    if (!confirmState.vacationId) return;
+
+    setDeleteBusy(true);
+    setError(null);
+
+    const id = confirmState.vacationId;
+    const dest = confirmState.destination;
+
+    try {
+      await deleteVacation(id);
+
+      await loadVacations();
+
+      toast.success(
+        dest ? `Vacation "${dest}" was deleted successfully.` : "Vacation was deleted successfully.",
+        "Delete completed"
+      );
+
+      setConfirmState({ open: false, vacationId: null });
+    } catch (err: any) {
+      console.error("Delete vacation error:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to delete vacation";
+
+      setError(msg);
+
+      toast.error(msg, "Delete failed");
+
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    if (deleteBusy) return;
+    setConfirmState({ open: false, vacationId: null });
+  };
+
+
+
+  if (authLoading) {
+    return <div>Loading user data...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div>
+        <h2>You must log in to view vacations</h2>
+      </div>
+    );
+  }
+
+  return (
+    <div className="vacations-page">
+
+      {/*select*/}
+      <section className="vacations-page__filters">
+        <label className="vacations-filter-select">
+
+          <select
+            value={filter}
+            onChange={handleSelectChange}
+            className="vacations-filter-select__control"
+          >
+            <option value="all">All Vacations</option>
+            {!isAdmin && (
+              <option value="following">Vacations I Follow</option>
+            )}
+            <option value="upcoming">Upcoming Vacations</option>
+            <option value="active">Active Vacations</option>
+          </select>
+          <img className="vacations-filter-select__icon" src={filterIcon} alt="filter" />
+        </label>
+      </section>
+
+      <section className="vacations-page__list">
+        <VacationsList
+          vacations={vacations}
+          isAdmin={isAdmin}
+          isLoading={loading}
+          error={error}
+          onFollow={isAdmin ? undefined : handleFollow}
+          onUnfollow={isAdmin ? undefined : handleUnfollow}
+          onEdit={isAdmin ? handleEdit : undefined}
+          onDelete={isAdmin ? handleDelete : undefined}
+        />
+      </section>
+
+      {!loading && totalCount > 0 && (
+        <footer className="vacations-page__pagination">
+          <Pagination
+            onPageChange={setPage}
+            currentPage={page}
+            totalPages={totalPages}
+
+          />
+        </footer>
+      )}
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title="Delete vacation"
+        description={
+          confirmState.destination
+            ? `Are you sure you want to delete "${confirmState.destination}"? This action cannot be undone.`
+            : "Are you sure you want to delete this vacation? This action cannot be undone."
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isBusy={deleteBusy}
+        onConfirm={performDelete}
+        onCancel={cancelDelete}
+      />
+
+    </div>
+  );
+};
+
+export default VacationsPage;
+
+=== types\models.ts ===
+export interface User {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  isAdmin: boolean;
+}
+
+export type VacationsFilter = "all" | "following" | "upcoming" | "active";
+
+export interface Vacation {
+  id: number;
+  destination: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  price: number;
+  image: string;
+  followersCount: number;
+  isFollowedByCurrentUser?: boolean;
+}
+
+export interface PaginatedVacationsResponse {
+  vacations: Vacation[];
+  totalCount: number;
+}
+
+export interface VacationReportItem {
+  destination: string;
+  followersCount: number;
+}
+
+

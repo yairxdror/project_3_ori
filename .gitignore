@@ -27,3 +27,8 @@ BackEnd/.env
 *.njsproj
 *.sln
 *.sw?
+
+#Other files
+.pdf
+*.zip
+echo_script.py

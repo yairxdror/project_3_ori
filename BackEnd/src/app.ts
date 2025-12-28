@@ -46,6 +46,15 @@ async function bootstrap() {
     res.send("pong");
   });
 
+  // React build (Vite dist)
+  const clientDist = path.join(process.cwd(), "FrontEnd", "dist");
+  server.use(express.static(clientDist));
+
+  server.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/images")) return next();
+    return res.sendFile(path.join(clientDist, "index.html"));
+  });
+
   server.use(errorHandler);
 
   server.listen(appConfig.port, () => {
